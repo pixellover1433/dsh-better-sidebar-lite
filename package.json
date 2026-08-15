@@ -1,0 +1,88 @@
+{
+  "name": "dsh-better-sidebar-lite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Right-side tabbed sidebar for DeepSeek Harness web: explorer (workspace file tree) and git (changes, commits) tabs on an extensible tab registry",
+  "type": "module",
+  "main": "lib/host/index.js",
+  "types": "lib/host/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/host/index.d.ts",
+      "default": "./lib/host/index.js"
+    },
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./contract": {
+      "types": "./lib/contract/index.d.ts",
+      "default": "./lib/contract/index.js"
+    },
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib/host/**/*.js",
+    "lib/client/**/*.js",
+    "lib/client/**/*.css",
+    "lib/contract/**/*.js",
+    "lib/types/**/*.d.ts",
+    "src/client/**/*.module.css",
+    "README.md",
+    "cordis.patch.yml",
+    "lib/client.js",
+    "lib/client.js.map"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.host.json && tsc -p tsconfig.client.json && node scripts/copy-client-assets.mjs && node scripts/build-client-bundle.mjs",
+    "typecheck": "tsc -p tsconfig.host.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "oxlint .",
+    "clean": "node -e \"require('node:fs').rmSync('lib', { recursive: true, force: true })\"",
+    "typecheck:tests": "tsc -p tsconfig.tests-host.json --noEmit && tsc -p tsconfig.tests-client.json --noEmit",
+    "typecheck:all": "pnpm typecheck && pnpm typecheck:tests",
+    "build:client-bundle": "node scripts/build-client-bundle.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.10.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.1",
+    "esbuild": "0.28.2",
+    "jsdom": "29.1.1",
+    "lightningcss": "^1.33.0",
+    "oxlint": "^1.78.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "use-sync-external-store": "1.2.0",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.1.8"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "connection",
+        "slots",
+        "locale",
+        "layout"
+      ]
+    }
+  }
+}

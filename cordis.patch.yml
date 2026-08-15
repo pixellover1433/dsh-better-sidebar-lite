@@ -1,0 +1,13 @@
+# dsh-better-sidebar-lite bundle patch: inserts the right-side sidebar
+# plugin into any profile that composes this bundle. Applied as one insert
+# over the profile's config tree; later patch layers may address the row by
+# id (last write wins per row).
+#
+# The host half needs the 'connection' service (provided by the
+# client-connection plugin, present in the web profile); the client half is
+# picked up by the web plugin table through the package's dsh.client
+# declaration.
+
+- insert:
+    - id: dsh-better-sidebar-lite
+      name: dsh-better-sidebar-lite

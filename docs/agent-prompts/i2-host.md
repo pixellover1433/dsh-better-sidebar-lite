@@ -1,0 +1,23 @@
+ASSIGNMENT ID: I2-host (HOST HALF)
+FILES YOU OWN: src/host/**, tests/host/** (all host tests except the existing toolchain.spec.ts)
+
+Design docs: docs/design/d6-host-services.md (primary), d3-git.md sections 5-6, d5-transport.md. ADRs 001/002/004.
+
+Implement exactly this layout (from D6 section 8):
+- src/host/config.ts — BetterSidebarConfig interface + schemastery Config schema (import z from '@deepseek-ai/schemastery'): allowedRoots (array of string, default []), gitTimeoutMs (default 15000, clamp [100,120000]), maxEntriesPerListing (2000), maxLogEntries (100), maxStatusEntries (20000), untrackedFiles 'all'|'normal' (default 'all'), hidePatterns (default ['.git','node_modules']), gitExecutable (optional string, test override).
+- src/host/port-fs.ts — FsPort interface (readdir/stat/readlink/realpath/isAbsolute/resolve/sep/isInside) per D6 section 4.1.
+- src/host/fs-node.ts — real FsPort adapter over node:fs/promises + node:path; isInside OS-aware (Windows case-insensitive containment).
+- src/host/explorer.ts — ExplorerService.list() per D6 section 4 algorithm (validate root -> readdir withFileTypes -> map entries (symlink never followed, linkTarget=readlink verbatim) -> sort with contract compareEntries -> cap + cumulative byte guard -> result). assertListableRoot + mapFSError per D6 sections 4.6/4.7.
+- src/host/git-runner.ts — GitRunner (execFile wrapper) per D6 sections 5.1-5.2: fixed args, cwd, env passthrough seam, timeout + external-signal abort (classify: git-missing/timeout/not-a-repo/cancelled/git-failed; stderrTail capped 2048).
+- src/host/git-status-parser.ts — porcelain v1 -z parser per D6 section 5.4 AND d3-git.md section 5 (rename = DEST record then bare SOURCE record; trailing-slash untracked dir in normal mode; XY letters to staged/unstaged/untracked/conflicted flags; submodule S).
+- src/host/git.ts — GitService: probe (rev-parse --is-inside-work-tree + --abbrev-ref HEAD --short) -> status (git status --porcelain=v1 -z --untracked-files=<cfg>) -> grouped GitStatusResult; log (git log -n <cap> --format=%H%x1f%h%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e) -> GitLogResult; stage/unstage (git add -- <files> / git restore --staged -- <files>, files validated repo-relative by the contract guard) returning SidebarResult<null>.
+- src/host/rpc.ts — dispatch: validate payloads with contract guards (isExplorerListRequest etc.), unknown endpoint -> RPC error bad-request; wire handlers to services; toRpcResult per ADR-002 (domain errors in value slot as SidebarResult; cancelled -> RPC error slot with code cancelled).
+- src/host/index.ts — plugin entry: export name 'dsh-better-sidebar-lite', Config, inject ['connection'], apply(ctx, config?): resolve config, validate allowedRoots absolute at load, construct services, register channel via ctx.inject(['connection']) -> connectionCtx.connection.rpc.handle('/better-sidebar', dispatch, { authority: 'loopback' }) wrapped in ctx.effect (disposer). Also export type BetterSidebarConfig.
+
+TESTS (tests/host/, follow d8-testing.md):
+- tests/host/explorer-service.spec.ts — in-memory FsPort fake for sorting/hiding/caps/root-validation/error-map branches + one thin real-fs test (mkdtemp tree with file/dir/file-symlink — note Windows dir-symlink may need admin; test file symlinks only on real fs).
+- tests/host/git-status-parser.spec.ts — hand-built porcelain strings: rename (dest-then-source), unmerged UU, submodule, untracked normal (trailing slash) vs all, empty.
+- tests/host/git-service.spec.ts + tests/host/fixtures/scripted-git.ts — real git repo fixture (mkdtemp, git init -b main, config user.name/email, commits, staged rename, unstaged mod, untracked file, untracked dir; skip gracefully if git absent). Assert status groups, head, log paging, not-a-repo (empty dir), git-missing (executable 'definitely-not-git'), timeout (tiny timeoutMs + slow command), cancelled (abort mid-run).
+- tests/host/plugin-wiring.spec.ts — apply on a real cordis Context with ctx.provide('connection', fake HostConnectionHandle) capturing the registered handler; drive payloads through dispatch; assert SidebarResult sits in the value slot and cancelled maps to RPC cancelled; unknown endpoint -> bad-request; malformed payload -> bad-request.
+
+Cross-checks: contract guards already exist (src/contract/rpc.ts) — use them. SidebarResult/SidebarError constructors are in src/contract/errors.ts. The explorer sort uses contract compareEntries. Never import from src/client.

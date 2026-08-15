@@ -1,0 +1,22 @@
+ASSIGNMENT ID: I5-git (GIT TAB)
+FILES YOU OWN: src/client/tabs/git/** (tab-def.ts, git-tab.tsx, status-view.tsx, log-view.tsx, git.module.css, locales.ts), tests/client/tabs/git/**
+
+Design docs: d3-git.md (primary), adr-004-explorer-git.md (git section), adr-003. d8-testing.md section 3.6.
+
+Seams ALREADY written (keep): src/client/tabs/git/tab-def.ts (STUB — REPLACE), src/client/tab-registry/contract.ts (TabDef), src/client/rpc-client.ts (BetterSidebarRpc), src/client/dock/context.ts (useDock), src/client/icons.tsx (GitBranchIcon, RefreshIcon, ChevronRightIcon, ChevronDownIcon), src/client/workspace-root.ts (resolveRoot).
+
+Contract (src/contract/git.ts + rpc.ts — read them): GitStatusEntry { xy, path, originalPath?, submodule, staged, unstaged, untracked, conflicted }, GitStatusResult { staged, unstaged, untracked, conflicted, truncated, head? }, GitLogEntry { hash, shortHash, authorName, authorEmail, authoredAtISO, subject }, GitLogResult { entries, head?, truncated }, GitStageRequest { path, files }; endpoints 'git/status', 'git/log', 'git/stage', 'git/unstage'; responses are SidebarResult<T> in the value slot (errors: not-a-repo, git-missing, git-failed, timeout, etc.).
+
+Implement:
+1. src/client/tabs/git/git-tab.tsx — the tab panel: resolves root via resolveRoot (useDock hooks); owns fetch state: status (loading | SidebarResult<GitStatusResult>), log (same), refresh() (AbortController supersede: abort in-flight status+log on new request), refresh on mount (useEffect) and on root change. Views: header (head branch name + Refresh button), StatusView, LogView. Error surfaces per ADR-004: not-a-repo -> full-tab empty state with root path + Refresh; git-missing -> full-tab error + Refresh; timeout/other -> banner with Retry. Never blank the shell.
+2. src/client/tabs/git/status-view.tsx — four sections in order: Staged (index), Conflicts, Changes (unstaged), Untracked — each with count + title, section-level actions (staged: Unstage all -> git/unstage with all staged paths; unstaged+untracked: Stage all -> git/stage with all those paths); rows: glyph letter from xy (colors: added=green, modified=amber, deleted=red, renamed=cyan, unmerged=red, untracked=muted — CSS classes with --bsd-* tokens), filename (last segment bold, parent dirs dimmed, full path in aria-label + title), per-row actions on hover/focus: Stage (when unstaged/untracked), Unstage (when staged) — call git/stage|git/unstage with [path] then refetch status; conflicts rows: no actions in v1 (documented).
+3. src/client/tabs/git/log-view.tsx — commit list: shortHash, subject, authorName, date (Intl.DateTimeFormat on authoredAtISO); Load more button when truncated (refetch with limit = current + pageSize, replace list). No merge badge (contract has no parents field — document).
+4. src/client/tabs/git/git.module.css — section headers, rows, glyphs, states with --bsd-* tokens; long-path ellipsis (min-width:0).
+5. src/client/tabs/git/tab-def.ts — REPLACE stub: createGitTabDef(ctx: ClientContext, api: { rpc: BetterSidebarRpc }): TabDef — { id:'git', order:20, label: () => t('tabLabel'), icon: <GitBranchIcon/>, renderPanel: () => <GitTab rpc={api.rpc}/> }.
+6. src/client/tabs/git/locales.ts — namespace 'betterSidebar.git', en+zh: tabLabel, refresh, staged, conflicts, changes, untracked, stage, unstage, stageAll, unstageAll, loadMore, notARepo, notARepoHint, gitMissing, gitMissingHint, errorRetry, branch, emptyLog. Export { NS, en, zh } (client-core index.ts registers them). LocaleNamespaceMap merge in this file.
+
+TESTS (tests/client/tabs/git/, jsdom):
+- git-tab.spec.tsx — render inside DockContext.Provider with stub rpc + stub hooks; fake rpc.call routed by endpoint: status returns canned groups; cover: sections render with counts; row actions call rpc with [path] then refetch (assert call sequence); not-a-repo error state + retry; git-missing state; refresh aborts previous (fake rpc records opts.signal; assert signal.aborted after refresh).
+- log-view.spec.tsx — renders entries, load more when truncated.
+- tab-def.spec.ts — factory shape.
+Keep tab tests framework-free (DockContext.Provider), no dsh test-runtime.

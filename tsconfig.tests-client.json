@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "noEmit": true,
+    "composite": false,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false
+  },
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx", "src/contract/**/*.ts", "src/client/**/*.d.ts", "tests/client/**/*.ts", "tests/client/**/*.tsx"]
+}

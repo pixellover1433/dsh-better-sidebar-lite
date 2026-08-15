@@ -1,0 +1,51 @@
+@import '../styles.css';
+
+/* Mirrors the Settings trigger exactly (ui-settings-general
+   SettingsRoot.module.css): the sidebar foot's 34px compact row rhythm in the
+   wide column and the 36px rail circle when collapsed. Uses dsh theme tokens
+   (--dsw-*) so hover fill, text color, and radius match the Settings button
+   pixel-for-pixel; the container geometry (width/margins) is identical. */
+.button {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.button:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.wide {
+  composes: button;
+  width: calc(100% + 8px);
+  height: 34px;
+  margin: 4px -4px 4px;
+  padding: 6px 2px 6px 10px;
+  border-radius: 12px;
+}
+
+.rail {
+  composes: button;
+  width: 36px;
+  height: 36px;
+  margin: 8px 0 10px;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.label {
+  overflow: hidden;
+  white-space: nowrap;
+}

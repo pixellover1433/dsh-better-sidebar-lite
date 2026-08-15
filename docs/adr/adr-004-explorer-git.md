@@ -1,0 +1,20 @@
+# ADR-004 — Explorer & git behavior (v1 scope)
+
+Status: accepted · Source designs: D2 (explorer), D3 (git)
+
+## Explorer
+1. Root resolution order (pure selector `resolveRoot(sessions, workspaces)`): active session `cwd` → current workspace path → recent/only workspace path → `no-workspace` empty state ("Open Workspace" affordance). NEVER falls back to host cwd.
+2. Lazy listing one directory per `explorer/list` call; entries model + compareEntries in contract; symlinks reported as symlink leaves (never followed); hidden = `.git`/node_modules by default (config), client still renders via `hidden` flag when reveal toggled (re-fetch).
+3. Store: `ExplorerStore` with node map, expansion/selection/focus paths, per-node load states + stale-response guards (`rootGen`, per-node seq). Single-select. Surface states: no-workspace / loading / loaded / root-error (+ per-node inline errors with retry).
+4. Open-file event contract (typed, subscribe-able; no consumer yet; emitted on Enter/double-click on files; no-op without subscribers). Non-root path-deleted: prune + toast; root path-deleted: root error + retry + choose-other-workspace.
+5. A11y: WebAIM treeview (role tree/treeitem/group, roving tabindex, aria-expanded/selected, full key map incl. `*` one-level expand; Delete/Backspace unbound).
+
+## Git
+1. Scope v1: view Changes + Commits, refresh, stage/unstage (per-path + section-level stage-all/unstage-all), per-commit detail (click a commit -> git/commit-detail: full message + changed-file list), COMMIT CREATION (composer: message + optional "include all changes" staging), and DISCARD (per-file or all untracked+unstaged, confirm-gated). OUT (documented): diff CONTENT preview, stash.
+2. Status sections: Staged (index) / Conflicts / Changes (unstaged) / Untracked, each with count + header actions; a row may appear in two groups (e.g. MM).
+3. Refresh: manual + on tab activation + on workspace change; NO polling. Switching tabs cancels in-flight requests.
+4. Errors → distinct UI: not-a-repo (full-tab empty state + root + retry), git-missing (full-tab error), timeout (banner + retry), etc. — never blank the shell.
+5. Parser contract (authoritative, verified against git 2.54): `git status --porcelain=v1 -z` — ONLY NUL separates records; renames emit DEST-then-SOURCE records; trailing-slash path = collapsed untracked dir (normal mode). `git log -n <cap> --format=%H%x1f%h%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e` (fields \x1f, records \x1e). `rev-parse --is-inside-work-tree` probe gates not-a-repo + yields head.
+6. Stage/unstage commands: `git add -- <path>` / `git restore --staged -- <path>`; section-level maps to per-path calls (no shell).
+7. Commit creation: `git add -- <files>` (when the user asks to include all changes) then `git commit -F -` — the message is written to git via stdin (spawn), never argv or a shell. Resolves the new id with `git rev-parse HEAD`. Discard: split by status — tracked paths `git restore --worktree -- <path>`, untracked paths `git clean --force -- <path>`; a mix runs both.
+8. Commit-detail commands: message: `git log -1 --format=%B <hash>` (full subject+body, trailing whitespace trimmed); files: `git diff-tree --no-commit-id --name-status -r -M -m --first-parent --root -z <hash>` — `-M` detects renames (`R<score>`), `--root` renders the initial commit as additions, `--first-parent -m` shows a merge's first-parent diff; `-z` puts one FIELD per NUL record (status, then path; rename = status, old, new). Parser: `parseNameStatus`.

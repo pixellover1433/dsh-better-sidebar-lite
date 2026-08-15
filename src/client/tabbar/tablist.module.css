@@ -1,0 +1,37 @@
+.list {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--bsd-border);
+  background: var(--bsd-bg);
+}
+
+.tabInactive,
+.tabActive {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--bsd-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabInactive {
+  color: var(--bsd-muted);
+}
+
+.tabActive {
+  color: var(--bsd-accent);
+  border-bottom-color: var(--bsd-accent);
+  font-weight: 600;
+}
+
+.label {
+  white-space: nowrap;
+}

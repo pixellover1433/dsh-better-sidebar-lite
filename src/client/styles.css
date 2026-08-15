@@ -1,0 +1,50 @@
+/**
+ * Global --bsd-* token palette (ADR-003, D7 §6). The dsh theme presenter
+ * (ui-layout) is the color authority: it sets body[data-ds-dark-theme] for the
+ * dark palette and removes it for light — so this stylesheet keys light/dark
+ * ONLY on that attribute. There is deliberately NO prefers-color-scheme
+ * override here: the resolved GUI theme (which may differ from the OS scheme)
+ * must win. Every token the modules reference is defined in both palettes so
+ * module fallbacks never render a wrong-scheme color.
+ */
+:root {
+  color-scheme: light;
+  --bsd-bg: #ffffff;
+  --bsd-bg-raised: #f6f8fa;
+  --bsd-bg-hover: rgba(0, 0, 0, 0.04);
+  --bsd-rail-bg: #f6f8fa;
+  --bsd-border: rgba(0, 0, 0, 0.12);
+  --bsd-text: #1f2328;
+  --bsd-fg: #1f2328;
+  --bsd-fg-strong: #161b22;
+  --bsd-fg-muted: #656d76;
+  --bsd-muted: #656d76;
+  --bsd-accent: #0969da;
+  --bsd-danger: #cf222e;
+  --bsd-focus: #0969da;
+  --bsd-hover: rgba(0, 0, 0, 0.06);
+  --bsd-selected: rgba(9, 105, 218, 0.12);
+  --bsd-banner-bg: rgba(9, 105, 218, 0.1);
+  --bsd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+body[data-ds-dark-theme] {
+  color-scheme: dark;
+  --bsd-bg: #0d1117;
+  --bsd-bg-raised: #161b22;
+  --bsd-bg-hover: rgba(255, 255, 255, 0.08);
+  --bsd-rail-bg: #161b22;
+  --bsd-border: rgba(255, 255, 255, 0.15);
+  --bsd-text: #e6edf3;
+  --bsd-fg: #e6edf3;
+  --bsd-fg-strong: #f0f6fc;
+  --bsd-fg-muted: #8b949e;
+  --bsd-muted: #8b949e;
+  --bsd-accent: #4493f8;
+  --bsd-danger: #f85149;
+  --bsd-focus: #4493f8;
+  --bsd-hover: rgba(255, 255, 255, 0.08);
+  --bsd-selected: rgba(68, 147, 248, 0.2);
+  --bsd-banner-bg: rgba(248, 81, 73, 0.12);
+  --bsd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}

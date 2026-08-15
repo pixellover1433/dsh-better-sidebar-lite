@@ -1,0 +1,86 @@
+@import '../styles.css';
+
+/* The dock fills the frame's right 'details' column track (ADR-003): AppFrame
+   owns the grid, the drag handle, and the column border, so this root is a
+   plain full-height flex column. The column keeps this subtree mounted at
+   0 width while closed, so the root must be width-agnostic. */
+.root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bsd-bg);
+}
+
+/* The details column is closed (blank session, narrow viewport, collapsed):
+   the dock floats at the right edge instead of disappearing. Absolute
+   positioning resolves against the frame (position:relative — AppFrame) and
+   escapes the 0-width column's overflow clipping; z-index rides above the
+   frame's overlay layer (z-20). */
+.rootFloating {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bsd-bg);
+  border-left: 1px solid var(--bsd-border);
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.06);
+  z-index: 30;
+}
+
+/* Collapsed: the rail (rail.module.css) replaces the full dock. */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--bsd-border);
+  background: var(--bsd-bg);
+  flex: 0 0 auto;
+}
+
+.title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bsd-text);
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bsd-muted);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--bsd-bg-hover);
+  color: var(--bsd-text);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bsd-bg);
+}
+
+.empty {
+  display: block;
+  padding: 24px 16px;
+  color: var(--bsd-muted);
+  text-align: center;
+  font-size: 13px;
+}
