@@ -1,0 +1,65 @@
+name: Publish to npm
+
+# Automatically publish a public npm release whenever a GitHub Release is
+# published (the trigger also fires when a versioned tag matching "v*" is
+# pushed). Version is taken from the git tag, e.g. tag v0.2.0 -> npm 0.2.0.
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+
+      - name: Enable pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: Derive version from tag
+        # Strip the leading "v": refs/tags/v1.2.3 -> 1.2.3.
+        id: version
+        run: |
+          REF="${GITHUB_REF#refs/tags/}"
+          VER="${REF#v}"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Publishing npm version: $VER"
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build + test + lint
+        run: |
+          pnpm build
+          pnpm test
+          pnpm lint
+
+      - name: Sync package.json version to tag
+        # Make the distributed package.json carry the tagged version so the
+        # published artifact matches the GitHub Release.
+        run: pnpm version --no-git-tag-version "${{ steps.version.outputs.version }}"
+
+      - name: Publish to npm
+        run: npm publish --access public --no-git-tag-version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
