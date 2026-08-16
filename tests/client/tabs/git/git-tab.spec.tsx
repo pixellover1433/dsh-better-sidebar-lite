@@ -3,8 +3,8 @@
  * a DockContext.Provider with a stub rpc and stub session/workspace hooks. No
  * dsh test-runtime, no Cordis mount.
  */
-import { afterEach, describe, expect, it } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
@@ -13,7 +13,7 @@ import type { GitLogResult, GitStatusEntry, GitStatusResult } from '../../../../
 import type { SidebarError, SidebarResult } from '../../../../src/contract/errors.ts'
 import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type BetterSidebarResMap } from '../../../../src/contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
-import { GitTab, type GitTabProps } from '../../../../src/client/tabs/git/git-tab.tsx'
+import { AUTO_REFRESH_DEBOUNCE_MS, AUTO_REFRESH_STATUS_INTERVAL_MS, GitTab, type GitTabProps } from '../../../../src/client/tabs/git/git-tab.tsx'
 
 /** Locale stub: render keys verbatim so assertions read the raw key. */
 const t: GitTabProps['t'] = (key) => key
@@ -433,6 +433,88 @@ describe('GitTab', () => {
     } finally {
       window.confirm = origConfirm
     }
+  })
+
+  describe('auto-refresh', () => {
+    afterEach(() => { vi.useRealTimers() })
+
+    const statusCount = (rpc: FakeRpc): number => rpc.calls.filter(c => c.endpoint === Endpoints.gitStatus).length
+    const logCount = (rpc: FakeRpc): number => rpc.calls.filter(c => c.endpoint === Endpoints.gitLog).length
+
+    it('polls status on the fallback interval and keeps the log until status changes', async () => {
+      vi.useFakeTimers()
+      const rpc = new FakeRpc()
+      rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: mixedStatus() }))
+      rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: emptyLogResult }))
+      renderGitTab(rpc)
+      // Mount refresh settles.
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(statusCount(rpc)).toBe(1)
+      expect(logCount(rpc)).toBe(1)
+
+      // One poll tick later the status is refetched...
+      await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_REFRESH_STATUS_INTERVAL_MS) })
+      await act(async () => {})
+      expect(statusCount(rpc)).toBe(2)
+      // ...but the unchanged status does not drag the log along.
+      expect(logCount(rpc)).toBe(1)
+    })
+
+    it('refetches the log when a poll sees the working tree change', async () => {
+      vi.useFakeTimers()
+      const rpc = new FakeRpc()
+      let clean = false
+      rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: clean ? emptyStatus : mixedStatus() }))
+      rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: emptyLogResult }))
+      renderGitTab(rpc)
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(logCount(rpc)).toBe(1)
+
+      // The tree becomes clean between polls (e.g. an external commit).
+      clean = true
+      await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_REFRESH_STATUS_INTERVAL_MS) })
+      await act(async () => {})
+      expect(logCount(rpc)).toBe(2)
+    })
+
+    it('auto-refreshes once, debounced, after the active session bumps updatedAt', async () => {
+      vi.useFakeTimers()
+      const rpc = new FakeRpc()
+      rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: mixedStatus() }))
+      rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: emptyLogResult }))
+      // Mutable sessions snapshot so the test can simulate a session update.
+      const sessionsRef: { value: SessionListState } = { value: SESSIONS }
+      const value: DockContextValue = {
+        rpc,
+        useSessions: ((sel: (s: SessionListState) => unknown) => sel(sessionsRef.value)) as SnapshotSelectorHook<SessionListState>,
+        useWorkspaces: fixedHook(WORKSPACES),
+      }
+      const { rerender } = render(
+        <DockContext.Provider value={value}>
+          <GitTab rpc={rpc} t={t} />
+        </DockContext.Provider>,
+      )
+      await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+      expect(statusCount(rpc)).toBe(1)
+
+      // A tool result lands: the session summary bumps its activity stamp.
+      sessionsRef.value = {
+        ...SESSIONS,
+        byId: { s1: { ...SESSIONS.byId.s1, updatedAt: 1 } },
+      } as unknown as SessionListState
+      rerender(
+        <DockContext.Provider value={value}>
+          <GitTab rpc={rpc} t={t} />
+        </DockContext.Provider>,
+      )
+      // Debounce has not elapsed yet -> no refresh.
+      await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_REFRESH_DEBOUNCE_MS - 1) })
+      expect(statusCount(rpc)).toBe(1)
+      // Once the debounce elapses, exactly one refresh runs.
+      await act(async () => { await vi.advanceTimersByTimeAsync(2) })
+      await act(async () => {})
+      expect(statusCount(rpc)).toBe(2)
+    })
   })
 
 })

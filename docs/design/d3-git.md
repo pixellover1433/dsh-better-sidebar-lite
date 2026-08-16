@@ -317,11 +317,12 @@ All error surfaces include a Refresh affordance and never blank the shell. Loadi
 
 ## 7. Refresh triggers
 
-### Decision: manual + tab activation + workspace change. No polling.
+### Decision: manual + tab activation + workspace change + hybrid auto-refresh (dirty-signal + fallback poll)
 - **Manual:** Refresh button in each tab header (always visible).
 - **On tab activation:** when the git tab becomes active, re-request `status` (cheap) and, if stale/empty, `log`. Covers out-of-band file edits without a timer.
 - **On workspace change:** the client derives the workspace root from the active session/workspaces state (`WorkspaceView.path`). When that root changes, invalidate cached status/log and re-request for the new root. Also refresh when a workspaces/session list change alters the derived root.
-- **No polling.** No timers; avoids background RPC churn and stale partials. (A future fs-watch mode is out of scope.)
+- **Session dirty-signal (amendment):** the active session's `updatedAt` bumps whenever the agent lands a message/tool frame (e.g. a `write`/`edit` tool changed the working tree). The git tab observes that bump and schedules a debounced (600 ms) status refresh; the log follows only when the status actually changed. First observation seeds the stamp and never triggers a refresh.
+- **Fallback poll (amendment):** an 8 s status-only poll catches changes that never touch the session store (IDE, terminal, other processes). The log is refetched only when the polled status differs from the last one. Both auto-refresh paths run only while the git tab is mounted (active tab + open dock) and the document is visible, never set the loading state, and supersede in-flight requests like a manual refresh. (A future fs-watch mode remains out of scope.)
 - **Post-action refresh:** after stage/unstage, the fresh status comes back in the response; no extra fetch.
 
 ## 8. Concurrency & stale-response guard (coordinated with D5)

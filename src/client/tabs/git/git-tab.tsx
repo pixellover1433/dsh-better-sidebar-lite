@@ -5,6 +5,15 @@
  * (full-tab error), timeout/other (inline banner + retry), and no-workspace
  * (full-tab hint). Last-good data is preserved across a failed refresh so the
  * shell is never blanked.
+ *
+ * Auto-refresh (ADR-004 §3 amendment): hybrid of a session dirty-signal and a
+ * visibility-scoped fallback poll. The dirty-signal reacts within a debounce
+ * whenever the active session's updatedAt bumps (message/tool frames land —
+ * e.g. a write/edit tool changed the working tree); the poll catches changes
+ * that never touch the session store (IDE, terminal, other processes). Both
+ * run only while the tab is mounted (active tab + open dock) and the document
+ * is visible, and both refresh status first, following with the log only when
+ * the status actually changed. A refresh is a manual override at any time.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { GitCommitDetailResult, GitLogEntry, GitLogResult, GitStatusEntry, GitStatusResult } from '../../../contract/git.ts'
@@ -22,6 +31,16 @@ import styles from './git.module.css'
 
 /** Page size used by the initial log request and incremented by "Load more". */
 const GIT_LOG_PAGE_SIZE = 50
+
+/** Fallback poll cadence (status-only; the log follows a status change). */
+export const AUTO_REFRESH_STATUS_INTERVAL_MS = 8_000
+
+/**
+ * Debounce for session-activity-triggered auto-refresh. Session frames (and
+ * their updatedAt bumps) arrive in bursts around one tool run, so coalesce
+ * them into a single refresh.
+ */
+export const AUTO_REFRESH_DEBOUNCE_MS = 600
 
 export interface GitTabProps {
   rpc: BetterSidebarRpc
@@ -160,6 +179,14 @@ export function GitTab({ rpc, t }: GitTabProps) {
     setLogLimit(next)
   }, [])
 
+  // Latest status result mirrored in a ref so the stable auto-refresh callback
+  // can diff against it without re-creating itself on every state change.
+  const statusRef = useRef<GitStatusResult | null>(null)
+  const applyStatus = useCallback((next: GitStatusResult | null): void => {
+    statusRef.current = next
+    setStatusValue(next)
+  }, [])
+
   const controllerRef = useRef<AbortController | null>(null)
   /** Abort any superseded request and open a fresh controller for this one. */
   const nextController = useCallback(() => {
@@ -182,13 +209,13 @@ export function GitTab({ rpc, t }: GitTabProps) {
         rpc.call(Endpoints.gitLog, { path: root, limit }, { signal }),
       ])
       if (signal.aborted) return
-      if (s.ok) { setStatusValue(s.value); setStatusError(null) }
+      if (s.ok) { applyStatus(s.value); setStatusError(null) }
       else setStatusError(s.error)
       if (l.ok) { setLogValue(l.value); setLogError(null) }
       else setLogError(l.error)
       setLoading(false)
     })()
-  }, [rpc, root, nextController])
+  }, [rpc, root, nextController, applyStatus])
 
   /** Status-only refresh used after a stage/unstage mutation. */
   const refreshStatus = useCallback(() => {
@@ -198,10 +225,10 @@ export function GitTab({ rpc, t }: GitTabProps) {
     void (async () => {
       const res = await rpc.call(Endpoints.gitStatus, { path: root }, { signal })
       if (signal.aborted) return
-      if (res.ok) { setStatusValue(res.value); setStatusError(null) }
+      if (res.ok) { applyStatus(res.value); setStatusError(null) }
       else setStatusError(res.error)
     })()
-  }, [rpc, root, nextController])
+  }, [rpc, root, nextController, applyStatus])
 
   /** Discard a single file's working-tree changes (restore/clean). */
   const discard = useCallback(async (entry: GitStatusEntry): Promise<void> => {
@@ -237,12 +264,58 @@ export function GitTab({ rpc, t }: GitTabProps) {
         rpc.call(Endpoints.gitLog, { path: root, limit }, { signal }),
       ])
       if (signal.aborted) return
-      if (s.ok) { setStatusValue(s.value); setStatusError(null) }
+      if (s.ok) { applyStatus(s.value); setStatusError(null) }
       else setStatusError(s.error)
       if (l.ok) { setLogValue(l.value); setLogError(null) }
       else setLogError(l.error)
     })()
-  }, [rpc, root, nextController])
+  }, [rpc, root, nextController, applyStatus])
+
+  // ---- Auto-refresh (ADR-004 §3 amendment): dirty-signal + fallback poll ----
+
+  /**
+   * Auto-refresh body: status first, then the log only when the status
+   * actually changed. Never sets the loading state (last-good stays on
+   * screen), supersedes any in-flight pair like a manual refresh, and is a
+   * no-op without a root or while the document is hidden.
+   */
+  const autoRefresh = useCallback(() => {
+    if (root === undefined || document.hidden) return
+    const ctrl = nextController()
+    const signal = ctrl.signal
+    void (async () => {
+      const res = await rpc.call(Endpoints.gitStatus, { path: root }, { signal })
+      if (signal.aborted) return
+      if (!res.ok) { setStatusError(res.error); return }
+      const prev = statusRef.current
+      applyStatus(res.value)
+      setStatusError(null)
+      // The working tree moved (or the first auto-refresh has no baseline):
+      // bring the log up to date too (new commits, branch moves).
+      if (prev === null || JSON.stringify(prev) !== JSON.stringify(res.value)) {
+        const limit = logLimitRef.current
+        const l = await rpc.call(Endpoints.gitLog, { path: root, limit }, { signal })
+        if (signal.aborted) return
+        if (l.ok) { setLogValue(l.value); setLogError(null) }
+        else setLogError(l.error)
+      }
+    })()
+  }, [rpc, root, nextController, applyStatus])
+
+  const autoRefreshTimerRef = useRef<number | null>(null)
+  /** Debounced auto-refresh: session frames arrive in bursts, coalesce them. */
+  const scheduleAutoRefresh = useCallback(() => {
+    if (autoRefreshTimerRef.current !== null) window.clearTimeout(autoRefreshTimerRef.current)
+    autoRefreshTimerRef.current = window.setTimeout(() => {
+      autoRefreshTimerRef.current = null
+      void autoRefresh()
+    }, AUTO_REFRESH_DEBOUNCE_MS)
+  }, [autoRefresh])
+
+  /** Last observed activity stamp of the active session (dirty-signal). */
+  const lastActivityRef = useRef<{ sessionId: string | undefined; updatedAt: number }>({ sessionId: undefined, updatedAt: 0 })
+  /** First observation only seeds the stamp; it never triggers a refresh. */
+  const activitySeededRef = useRef(false)
 
   /** Open a commit: show its changed files; supersedes any in-flight fetch. */
   const openCommit = useCallback((entry: GitLogEntry) => {
@@ -285,17 +358,64 @@ export function GitTab({ rpc, t }: GitTabProps) {
   useEffect(() => {
     if (root === undefined) return
     setLoading(true)
-    setStatusValue(null)
+    applyStatus(null)
     setStatusError(null)
     setLogValue(null)
     setLogError(null)
+    // A pending auto-refresh timer holds a stale-root closure; drop it, and
+    // re-seed the activity stamp so the root-change refresh is not doubled by
+    // the dirty-signal (this effect runs before the activity effect below).
+    if (autoRefreshTimerRef.current !== null) {
+      window.clearTimeout(autoRefreshTimerRef.current)
+      autoRefreshTimerRef.current = null
+    }
+    lastActivityRef.current = { sessionId: undefined, updatedAt: 0 }
+    activitySeededRef.current = false
     void refresh()
-  }, [root, refresh])
+  }, [root, refresh, applyStatus])
+
+  /**
+   * Session dirty-signal: the active session's updatedAt bumps whenever the
+   * agent lands a message/tool frame (e.g. a write/edit tool that changed the
+   * working tree), so that bump is a strong hint to auto-refresh. The first
+   * observation seeds the stamp; later bumps schedule a debounced refresh.
+   * Runs after every render; the comparison is cheap.
+   */
+  useEffect(() => {
+    const current = sessions.current
+    const summary = current === undefined ? undefined : sessions.byId[current]
+    const stamp = { sessionId: current, updatedAt: summary?.updatedAt ?? 0 }
+    const prev = lastActivityRef.current
+    lastActivityRef.current = stamp
+    if (!activitySeededRef.current) {
+      activitySeededRef.current = true
+      return
+    }
+    if (stamp.sessionId === prev.sessionId && stamp.updatedAt === prev.updatedAt) return
+    if (root === undefined || document.hidden) return
+    scheduleAutoRefresh()
+  })
+
+  /**
+   * Fallback poll: catches working-tree changes that never touch the session
+   * store (IDE, terminal, other processes). Runs only while this tab is
+   * mounted — GitTab unmounts when the tab is inactive or the dock collapses —
+   * and skips hidden documents. Status-only; the log follows a status change
+   * inside autoRefresh.
+   */
+  useEffect(() => {
+    if (root === undefined) return
+    const id = window.setInterval(() => {
+      void autoRefresh()
+    }, AUTO_REFRESH_STATUS_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [root, autoRefresh])
 
   // Abort in-flight requests on unmount.
   useEffect(() => () => {
     controllerRef.current?.abort()
     commitDetailCtrl.current?.abort()
+    if (autoRefreshTimerRef.current !== null) window.clearTimeout(autoRefreshTimerRef.current)
   }, [])
 
   if (root === undefined) {
