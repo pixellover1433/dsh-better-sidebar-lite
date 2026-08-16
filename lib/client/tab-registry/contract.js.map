@@ -1,0 +1,1 @@
+{"version":3,"file":"contract.js","sourceRoot":"","sources":["../../../src/client/tab-registry/contract.ts"],"names":[],"mappings":"AAuCA,4DAA4D;AAC5D,MAAM,OAAO,gBAAiB,SAAQ,KAAK;IACpB;IAArB,YAAqB,EAAS;QAC5B,KAAK,CAAC,wBAAwB,EAAE,yBAAyB,CAAC,CAAA;QADvC,OAAE,GAAF,EAAE,CAAO;QAE5B,IAAI,CAAC,IAAI,GAAG,kBAAkB,CAAA;IAChC,CAAC;CACF"}

@@ -1,8 +1,14 @@
 name: Publish to npm
 
 # Automatically publish a public npm release whenever a GitHub Release is
-# published (the trigger also fires when a versioned tag matching "v*" is
-# pushed). Version is taken from the git tag, e.g. tag v0.2.0 -> npm 0.2.0.
+# published (also fires when a versioned tag "v*" is pushed). Version is
+# taken from the git tag, e.g. tag v0.1.0-beta.1 -> npm 0.1.0-beta.1.
+#
+# NOTE: this package's build (tsc + bundle) requires the DeepSeek Harness
+# source tree via tsconfig "paths", which CI does not have. Therefore CI
+# does NOT build here — the built artifacts in lib/ are committed to git.
+# Local flow: edit source -> pnpm build -> commit source + lib/ together
+# -> push tag / create release.
 on:
   release:
     types: [published]
@@ -37,7 +43,7 @@ jobs:
           run_install: false
 
       - name: Derive version from tag
-        # Strip the leading "v": refs/tags/v1.2.3 -> 1.2.3.
+        # Strip the leading "v": refs/tags/v1.2.3-beta.1 -> 1.2.3-beta.1.
         id: version
         run: |
           REF="${GITHUB_REF#refs/tags/}"
@@ -45,14 +51,11 @@ jobs:
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "Publishing npm version: $VER"
 
-      - name: Install dependencies (frozen lockfile)
-        run: pnpm install --frozen-lockfile
-
-      - name: Build + test + lint
+      - name: Verify built artifacts are committed
+        # Refuse to publish an empty/broken package if lib/ was forgotten.
         run: |
-          pnpm build
-          pnpm test
-          pnpm lint
+          test -f lib/host/index.js || { echo "::error::lib/host/index.js missing. Run 'pnpm build' locally and commit lib/ before releasing."; exit 1; }
+          test -f lib/client.js || { echo "::error::lib/client.js missing (client bundle). Run 'pnpm build' locally and commit lib/ before releasing."; exit 1; }
 
       - name: Sync package.json version to tag
         # Make the distributed package.json carry the tagged version so the
@@ -60,6 +63,6 @@ jobs:
         run: pnpm version --no-git-tag-version "${{ steps.version.outputs.version }}"
 
       - name: Publish to npm
-        run: npm publish --access public --no-git-tag-version
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
