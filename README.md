@@ -112,8 +112,19 @@ Domain errors travel inside the RPC **value** slot as `SidebarResult<T>` (ADR-00
 
 ## Development
 
+**Prerequisite — sibling dsh checkout.** This repo consumes the DeepSeek
+Harness checkout as a read-only sibling: clone `deepseek-harness` into the
+same parent directory as this repo (i.e. `../deepseek-harness` next to this
+repo). No absolute paths are stored anywhere; every reference is relative.
+
 ```
-pnpm install     # toolchain (react 18.3.1, vitest 4, typescript 6, oxlint)
+parent/
+├── deepseek-harness        # sibling checkout (read-only, packages prebuilt)
+└── dsh-better-sidebar-lite # this repo
+```
+
+```
+pnpm install     # toolchain (react 18.3.1, vitest 4, typescript 6, oxlint) + link: deps
 pnpm typecheck   # tsc -p host + client against the dsh checkout built types
 pnpm typecheck:tests
 pnpm test        # vitest projects: host (node) + client (jsdom)
@@ -121,7 +132,7 @@ pnpm build       # tsc emits lib/{host,client,contract}; CSS mirrored into lib/c
 pnpm lint        # oxlint
 ```
 
-The test suite needs a real `git` on PATH (git-service tests script a real repo under a temp dir). `node_modules/@deepseek-ai/*` are junctions to the read-only dsh checkout; vitest resolves dsh **source** through the alias map in `vitest.config.ts` (never the built module-loader bundles), and the client tests force a single React instance (see the comments in `vitest.config.ts`).
+The test suite needs a real `git` on PATH (git-service tests script a real repo under a temp dir). The dsh checkout is wired in three ways, all relative: `tsconfig.base.json` `paths` (built `.d.ts` for `tsc`), `tsconfig.vitest.json` + `vitest.config.ts` aliases (dsh **source** for vitest — never the built module-loader bundles), and `@deepseek-ai/schemastery` in `devDependencies` as `link:../deepseek-harness/vendor/schemastery` (the one host-side runtime import; `pnpm install` creates the junction in `node_modules/@deepseek-ai/`). The client tests force a single React instance (see the comments in `vitest.config.ts`).
 
 ## Known limitations (v1)
 
