@@ -1,7 +1,6 @@
 {
   "name": "dsh-better-sidebar-lite",
   "version": "0.1.0",
-  "private": true,
   "description": "Right-side tabbed sidebar for DeepSeek Harness web: explorer (workspace file tree) and git (changes, commits) tabs on an extensible tab registry",
   "type": "module",
   "main": "lib/host/index.js",
@@ -27,7 +26,7 @@
     "lib/client/**/*.js",
     "lib/client/**/*.css",
     "lib/contract/**/*.js",
-    "lib/types/**/*.d.ts",
+    "lib/**/*.d.ts",
     "src/client/**/*.module.css",
     "README.md",
     "cordis.patch.yml",
@@ -52,8 +51,10 @@
   "peerDependencies": {
     "react": "^18.2.0"
   },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
   "devDependencies": {
-    "@deepseek-ai/schemastery": "link:../deepseek-harness/vendor/schemastery",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
