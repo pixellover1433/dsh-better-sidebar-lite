@@ -11,7 +11,7 @@ A right-side tabbed sidebar for [DeepSeek Harness](https://github.com/deepseek-a
 - Quick install via NPM:
 
 ```
-dsh plugin add dsh-better-sidebar-lite --profile web
+dsh plugin add dsh-better-sidebar-lite@0.0.2-beta.2 --profile web
 ```
 --- 
 ![Alt text](image/review_1.png)
