@@ -90,6 +90,7 @@ function renderPanel({ rpc, sessions = emptySessions, workspaces = noWorkspaces 
     rpc,
     useSessions: ((sel) => sel(sessions)) as SnapshotSelectorHook<SessionListState>,
     useWorkspaces: ((sel) => sel(workspaces)) as SnapshotSelectorHook<WorkspaceListState>,
+    settings: undefined,
   }
   render(
     <DockContext.Provider value={dockValue}>
@@ -261,6 +262,7 @@ describe('ExplorerPanel auto-refresh (ADR-004 §3 amendment)', () => {
       rpc,
       useSessions: ((sel) => sel(sessionsRef.value)) as SnapshotSelectorHook<SessionListState>,
       useWorkspaces: ((sel) => sel(singleWorkspace('/r'))) as SnapshotSelectorHook<WorkspaceListState>,
+      settings: undefined,
     }
     // Fresh element per render: React bails out when the exact same element
     // reference is re-rendered, which would skip the dirty-signal effect.

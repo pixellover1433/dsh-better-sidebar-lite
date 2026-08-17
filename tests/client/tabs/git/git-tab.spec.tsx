@@ -122,6 +122,7 @@ function renderGitTab(rpc: BetterSidebarRpc): void {
     rpc,
     useSessions: fixedHook(SESSIONS),
     useWorkspaces: fixedHook(WORKSPACES),
+    settings: undefined,
   }
   render(
     <DockContext.Provider value={value}>
@@ -488,6 +489,7 @@ describe('GitTab', () => {
         rpc,
         useSessions: ((sel: (s: SessionListState) => unknown) => sel(sessionsRef.value)) as SnapshotSelectorHook<SessionListState>,
         useWorkspaces: fixedHook(WORKSPACES),
+        settings: undefined,
       }
       const { rerender } = render(
         <DockContext.Provider value={value}>

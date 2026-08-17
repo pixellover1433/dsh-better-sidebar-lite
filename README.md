@@ -64,16 +64,34 @@ Not installed here; when the owner authorizes, the steps are:
 
 ## Config reference
 
+The plugin has two configuration surfaces:
+
+**1. User settings (Settings > Plugins > Plugin configuration)** — live-editable, no restart. When the `ui-settings` seam is composed, the plugin registers a `dsh-better-sidebar` settings namespace:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `explorerPollMs` | `8000` | Explorer fallback stamp-poll cadence (ms). |
+| `explorerDebounceMs` | `600` | Explorer session-dirty debounce (ms). |
+| `gitPollMs` | `8000` | Git fallback status-poll cadence (ms). |
+| `gitDebounceMs` | `600` | Git session-dirty debounce (ms). |
+| `gitTimeoutMs` | `15000` | Per git command timeout (ms). |
+
+The tabs re-read these live, so editing them takes effect immediately (the explorer/git poll and debounce intervals are recreated, and the git timeout is read per command). The git timeout **replaces** the legacy cordis `gitTimeoutMs` below when the settings seam is present; the cordis value remains the fallback when it is not.
+
+**2. Cordis config (`cordis.yml`)** — read at load, restart to change:
+
 | Field | Type | Default | Meaning |
 |---|---|---|---|
 | `allowedRoots` | string[] | `[]` | Absolute roots the plugin may read; empty = any absolute directory the host process can read. Entries must be absolute (validated at load). |
-| `gitTimeoutMs` | number | `15000` | Per git command timeout (clamped 100-120000). |
+| `gitTimeoutMs` | number | `15000` | Per git command timeout (clamped 100-120000). Used only when the settings seam is absent. |
 | `maxEntriesPerListing` | number | `2000` | Per-directory listing cap; excess is truncated with a flag. |
 | `maxLogEntries` | number | `100` | `git log -n` cap / page size clamp. |
 | `maxStatusEntries` | number | `20000` | git status entry cap. |
 | `untrackedFiles` | all or normal | `all` | Porcelain untracked mode; `normal` collapses all-untracked dirs into `dir/` entries. |
 | `hidePatterns` | string[] | `['.git','node_modules']` | Basenames filtered from listings (no reveal toggle in v1). |
 | `gitExecutable` | string | `git` | Test/override seam. |
+
+> **Runtime-visibility caveat.** The dsh `api-proxy` exposes a plugin's settings namespace to the browser only through an allowlist in `packages/host/apiproxy` (`WEB_SETTINGS_NAMESPACES`). This plugin registers its `dsh-better-sidebar` namespace and contributes a card into the Plugins section, but until that allowlist is extended inside the dsh checkout the card does not render at runtime (the namespace answers `settings-not-exposed`). The tabs still read the values when the seam is composed; the card is the editing surface.
 
 ## Extension guide — add a tab
 

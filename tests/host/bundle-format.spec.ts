@@ -45,7 +45,7 @@ describe('client bundle loader format', () => {
       throw new Error('bundle required an unexpected module: ' + spec)
     })
     expect(typeof mod.apply).toBe('function')
-    expect(mod.inject).toEqual(['connection', 'slots', 'locale', 'layout'])
+    expect(mod.inject).toEqual(['connection', 'slots', 'locale', 'layout', 'settingsScope'])
   })
 
   it('emits plugin-owned style-tag injection and CSS class maps', () => {

@@ -7,7 +7,11 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Merges the ui-layout SlotMap declaration so 'details' is a valid slot key.
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
+// Merges the ui-settings Context merge so `ctx.settingsScope` is typed (present
+// when ui-settings is composed; absent otherwise).
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
+import { SETTINGS_NAMESPACE, type BetterSidebarSettings } from '../contract/settings.ts'
 import { createBetterSidebarRpc } from './rpc-client.ts'
 import type { BetterSidebarRpc } from './rpc-client.ts'
 import { TabRegistryService } from './tab-registry/service.ts'
@@ -18,6 +22,7 @@ import { createDockEntry, TOGGLE_EVENT } from './dock/dock.tsx'
 import { createSidebarToggleAction } from './dock/footer-toggle.tsx'
 import { createExplorerTabDef } from './tabs/explorer/tab-def.ts'
 import { createGitTabDef } from './tabs/git/tab-def.ts'
+import { registerBetterSidebarCard } from './settings-card/register.ts'
 import { en as dockEn, NS as DOCK_NS, zh as dockZh } from './locales.ts'
 import { en as explorerEn, NS as EXPLORER_NS, zh as explorerZh } from './tabs/explorer/locales.ts'
 import { en as gitEn, NS as GIT_NS, zh as gitZh } from './tabs/git/locales.ts'
@@ -49,8 +54,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Required services. */
-export const inject = ['connection', 'slots', 'locale', 'layout']
+/** Required services. `settingsScope` is optional (present when ui-settings is
+ * composed); when absent the tabs keep their built-in defaults and no card is
+ * registered into Settings > Plugins. */
+export const inject = ['connection', 'slots', 'locale', 'layout', 'settingsScope']
 
 /**
  * Client plugin body: provide ctx.betterSidebar, register shell + built-in
@@ -74,6 +81,15 @@ export function apply(ctx: ClientContext): void {
     const tabs = new TabRegistryService()
     const explorer = new ExplorerOpenFileEmitter()
 
+    // Bind the plugin settings namespace when the settings service is composed
+    // (absent => undefined, and no card is registered into Settings > Plugins).
+    // The decode narrows the wire section to the typed settings (the host schema
+    // already resolved defaults, so a plain passthrough suffices).
+    const scope = ctx.settingsScope?.bind<BetterSidebarSettings>?.({
+      namespace: SETTINGS_NAMESPACE,
+      decode: (section) => section as BetterSidebarSettings | undefined,
+    })
+
     const disposeProvide = ctx.reflect.provide('betterSidebar', { rpc, tabs, explorer })
     const disposeShellLocale = ctx.locale.register(DOCK_NS, { zh: dockZh, en: dockEn })
     const disposeExplorerLocale = ctx.locale.register(EXPLORER_NS, { zh: explorerZh, en: explorerEn })
@@ -82,7 +98,7 @@ export function apply(ctx: ClientContext): void {
     const disposeGitTab = tabs.register(createGitTabDef(ctx, { rpc }))
     const disposeExplorerTab = tabs.register(createExplorerTabDef(ctx, { rpc, emitter: explorer }))
 
-    const DockEntry = createDockEntry({ rpc, tabs, t: ctx.locale.bind(DOCK_NS), layout: ctx.layout })
+    const DockEntry = createDockEntry({ rpc, tabs, settings: scope, t: ctx.locale.bind(DOCK_NS), layout: ctx.layout })
     // The dock owns the frame's right 'details' column (declared by ui-layout
     // AppFrame). Priority -1 shadows ui-conversation's DetailsPanel — the
     // sanctioned way to take over a single seat — and inject, not bare
@@ -104,7 +120,15 @@ export function apply(ctx: ClientContext): void {
     }, FooterToggle))
     const disposeShortcut = bindToggleShortcut()
 
+    // When the settings seam is composed, contribute our card to the
+    // Settings > Plugins > Plugin configuration section so the user can edit
+    // the tab tunables live (ADR-004 §3 amendment).
+    const disposeCard = scope === undefined
+      ? undefined
+      : registerBetterSidebarCard(ctx, { scope })
+
     return () => {
+      disposeCard?.()
       disposeShortcut()
       disposeFooterToggle()
       disposeDockEntry()

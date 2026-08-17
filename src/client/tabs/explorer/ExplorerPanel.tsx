@@ -9,20 +9,21 @@ import type { ExplorerOpenFileEmitter, ExplorerOpenFileEvent } from './events.ts
 import { basename, ExplorerStore, type ExplorerState } from './state.ts'
 import { TreeNodeRow } from './TreeNodeRow.tsx'
 import type { ExplorerKey } from './locales.ts'
+import { useBetterSidebarSettings } from '../shared/settings.ts'
 import styles from './ExplorerPanel.module.css'
 
 /**
- * Fallback poll cadence (ADR-004 §3 amendment, explorer): catches tree-visible
- * changes that never touch the session store (IDE, terminal, other processes).
- * The sweep itself is cheap — a handful of directory stats via explorer/stamp —
- * and only changed directories are re-listed.
+ * Fallback poll cadence default (ADR-004 §3 amendment, explorer): catches
+ * tree-visible changes that never touch the session store (IDE, terminal,
+ * other processes). Read live from the plugin settings when the seam is
+ * composed; this is the fallback when it is not.
  */
 export const AUTO_REFRESH_EXPLORER_INTERVAL_MS = 8_000
 
 /**
- * Debounce for session-activity-triggered auto-refresh. Session frames (and
- * their updatedAt bumps) arrive in bursts around one tool run, so coalesce
- * them into a single refresh — mirrors the git tab's debounce.
+ * Debounce default for session-activity-triggered auto-refresh. Session frames
+ * (and their updatedAt bumps) arrive in bursts around one tool run. Live
+ * settings override this when the seam is composed.
  */
 export const AUTO_REFRESH_EXPLORER_DEBOUNCE_MS = 600
 
@@ -70,9 +71,10 @@ function flattenVisible(state: ExplorerState): VisibleRow[] {
  * host always filters) — no toggle is rendered.
  */
 export function ExplorerPanel({ rpc, emitter, t }: ExplorerPanelProps) {
-  const { useSessions, useWorkspaces } = useDock()
+  const { useSessions, useWorkspaces, settings } = useDock()
   const sessions = useSessions(s => s)
   const workspaces = useWorkspaces(w => w)
+  const { explorerPollMs, explorerDebounceMs } = useBetterSidebarSettings(settings)
 
   // Store created once per mount over a stable rpc facade; lazy init keeps the
   // loader bound to the injected instances.
@@ -98,6 +100,11 @@ export function ExplorerPanel({ rpc, emitter, t }: ExplorerPanelProps) {
   const activitySeededRef = useRef(false)
   const autoRefreshTimerRef = useRef<number | null>(null)
 
+  // Debounce read at fire time so a live settings edit applies without the
+  // stable auto-refresh callback re-creating itself on every render.
+  const debounceMsRef = useRef(explorerDebounceMs)
+  debounceMsRef.current = explorerDebounceMs
+
   /** Debounced auto-refresh: session frames arrive in bursts, coalesce them. */
   const scheduleAutoRefresh = useCallback(() => {
     if (autoRefreshTimerRef.current !== null) window.clearTimeout(autoRefreshTimerRef.current)
@@ -109,7 +116,7 @@ export function ExplorerPanel({ rpc, emitter, t }: ExplorerPanelProps) {
         .filter(n => n.children !== undefined && n.entry.kind === 'directory')
         .map(n => n.entry.path)
       void store.refreshDirs(loaded)
-    }, AUTO_REFRESH_EXPLORER_DEBOUNCE_MS)
+    }, debounceMsRef.current)
   }, [store])
 
   // Root change => full reset + list (ADR-004 root-resolution precedence). A
@@ -155,9 +162,9 @@ export function ExplorerPanel({ rpc, emitter, t }: ExplorerPanelProps) {
     const id = window.setInterval(() => {
       if (document.hidden) return
       void store.pollStamps(stampLoader)
-    }, AUTO_REFRESH_EXPLORER_INTERVAL_MS)
+    }, explorerPollMs)
     return () => window.clearInterval(id)
-  }, [root, store, stampLoader])
+  }, [root, store, stampLoader, explorerPollMs])
 
   // Abort the pending debounce on unmount.
   useEffect(() => () => {

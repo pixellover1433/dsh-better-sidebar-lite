@@ -17,8 +17,9 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, WorkspaceListState, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { BetterSidebarRpc } from '../rpc-client.ts'
+import type { BetterSidebarSettings } from '../../contract/settings.ts'
 import type { BetterSidebarTabRegistry, TabDef, TabID } from '../tab-registry/contract.ts'
 import { DockContext } from './context.ts'
 import type { DockContextValue } from './context.ts'
@@ -45,6 +46,8 @@ export interface DockRootProps {
   useWorkspaces: SnapshotSelectorHook<WorkspaceListState>
   rpc: BetterSidebarRpc
   tabs: BetterSidebarTabRegistry
+  /** Bound plugin settings scope (user-editable via Settings > Plugins); undefined when the seam is absent. */
+  settings: SettingsScope<BetterSidebarSettings> | undefined
   /** Localized shell copy (plugin passes ctx.locale.bind(NS)). */
   t: TranslateNS<'betterSidebar.dock'>
   /** Details-column panel actions (open/close the sidebar). */
@@ -97,7 +100,7 @@ function persistOpen(open: boolean): void {
   }
 }
 
-export function DockRoot({ useSessions, useWorkspaces, rpc, tabs, t, layout }: DockRootProps): JSX.Element {
+export function DockRoot({ useSessions, useWorkspaces, rpc, tabs, settings, t, layout }: DockRootProps): JSX.Element {
   const snapshot = useTabs(tabs)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -156,7 +159,7 @@ export function DockRoot({ useSessions, useWorkspaces, rpc, tabs, t, layout }: D
   const active = snapshot.active
   const activeDef = active === undefined ? undefined : tabs.get(active)
 
-  const contextValue: DockContextValue = { rpc, useSessions, useWorkspaces }
+  const contextValue: DockContextValue = { rpc, useSessions, useWorkspaces, settings }
 
   const floating = open && !columnOpen
   return (
@@ -227,6 +230,7 @@ function DockBody({
 export function createDockEntry(services: {
   rpc: BetterSidebarRpc
   tabs: BetterSidebarTabRegistry
+  settings: SettingsScope<BetterSidebarSettings> | undefined
   t: TranslateNS<'betterSidebar.dock'>
   layout: DockLayoutActions
 }): (props: DockRootPropsWithoutServices) => JSX.Element {
@@ -236,6 +240,7 @@ export function createDockEntry(services: {
       useWorkspaces={props.useWorkspaces}
       rpc={services.rpc}
       tabs={services.tabs}
+      settings={services.settings}
       t={services.t}
       layout={services.layout}
     />

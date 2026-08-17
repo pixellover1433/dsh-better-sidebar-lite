@@ -220,6 +220,10 @@
   "./packages/settings/settings/src/types.ts"
  ],
  [
+  "@deepseek-ai/dsh-settings",
+  "./packages/settings/settings/src/index.ts"
+ ],
+ [
   "@deepseek-ai/dsh-api-remotes/types",
   "./packages/api/remotes/src/types.ts"
  ],

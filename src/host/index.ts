@@ -10,6 +10,11 @@ import { ExplorerService } from './explorer.ts'
 import { GitRunner } from './git-runner.ts'
 import { GitService } from './git.ts'
 import { createChannelHandler } from './rpc.ts'
+import {
+  BETTER_SIDEBAR_NAMESPACE,
+  registerBetterSidebarSettings,
+} from './settings.ts'
+import { SETTINGS_DEFAULTS } from '../contract/index.ts'
 
 export type { BetterSidebarConfig } from './config.ts'
 export { Config }
@@ -31,12 +36,20 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
       throw new Error('better-sidebar: allowedRoots entries must be absolute paths')
     }
   }
+  registerBetterSidebarSettings(ctx)
   const explorer = new ExplorerService(fsNode, {
     maxEntries: cfg.maxEntriesPerListing,
     hidePatterns: cfg.hidePatterns,
     allowedRoots: cfg.allowedRoots,
   })
-  const runner = new GitRunner({ executable: cfg.gitExecutable, timeoutMs: cfg.gitTimeoutMs })
+  // The git timeout is user-editable via the settings namespace when the
+  // settings seam is composed (Settings > Plugins), read live on every command;
+  // otherwise it falls back to the cordis config value (defaults to the
+  // contract default). This replaces the previous always-fixed cordis config.
+  const runner = new GitRunner({
+    executable: cfg.gitExecutable,
+    timeoutMs: () => readGitTimeout(ctx, cfg.gitTimeoutMs),
+  })
   const git = new GitService(runner, {
     maxLogEntries: cfg.maxLogEntries,
     maxStatusEntries: cfg.maxStatusEntries,
@@ -51,3 +64,18 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
     }, 'better-sidebar: rpc channel')
   })
 }
+
+/**
+ * Read the current git timeout from the settings namespace when available,
+ * else fall back to the legacy config value. Falls back to the contract
+ * default when the section is not yet resolved by the settings provider.
+ */
+function readGitTimeout(ctx: Context, legacyMs: number): number {
+  const settings = ctx.get('settings')
+  const resolved = settings?.get(BETTER_SIDEBAR_NAMESPACE) as
+    | { gitTimeoutMs?: number }
+    | undefined
+  if (resolved?.gitTimeoutMs !== undefined) return resolved.gitTimeoutMs
+  return legacyMs === undefined ? SETTINGS_DEFAULTS.gitTimeoutMs : legacyMs
+}
+

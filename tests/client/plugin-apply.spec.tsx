@@ -38,11 +38,14 @@ async function bench(rpc?: { call: (...args: never[]) => Promise<unknown> }) {
   })
   rt.provide('connection', { ...fakeConnection(), ...(rpc === undefined ? {} : { rpc }) } as never)
   rt.provide('remote', { $on: () => () => {} })
-  rt.provide('settingsScope', { bind: () => stubSettingsScope().scope })
+  // The fake settingsScope bind returns a settings scope; the plugin's typed
+  // bind accepts it. Use a plain function so no generic arrow parses as JSX.
+  const stubScope = stubSettingsScope<Record<string, never>>().scope
+  rt.provide('settingsScope', { bind: () => stubScope } as never)
   const layout = { openDetails: vi.fn(), closeDetails: vi.fn(), toggleSidebar: vi.fn() }
   rt.provide('layout', layout)
   await rt.mount({ inject: localeInject, apply: applyLocale })
-  const handle = await rt.mount({ inject: ['connection', 'slots', 'locale', 'layout'], apply: pluginApply })
+  const handle = await rt.mount({ inject: ['connection', 'slots', 'locale', 'layout', 'settingsScope'], apply: pluginApply })
   return { rt, handle, layout }
 }
 

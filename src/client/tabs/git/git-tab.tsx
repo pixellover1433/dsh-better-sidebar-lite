@@ -24,6 +24,7 @@ import { useDock } from '../../dock/context.ts'
 import { resolveRoot } from '../../workspace-root.ts'
 import { GitBranchIcon, RefreshIcon } from '../../icons.tsx'
 import type { GitKey } from './locales.ts'
+import { useBetterSidebarSettings } from '../shared/settings.ts'
 import { GitStatusView } from './status-view.tsx'
 import { GitLogView } from './log-view.tsx'
 import { CommitDetailView } from './commit-detail-view.tsx'
@@ -32,13 +33,12 @@ import styles from './git.module.css'
 /** Page size used by the initial log request and incremented by "Load more". */
 const GIT_LOG_PAGE_SIZE = 50
 
-/** Fallback poll cadence (status-only; the log follows a status change). */
+/** Fallback poll cadence default (status-only; the log follows a status change). */
 export const AUTO_REFRESH_STATUS_INTERVAL_MS = 8_000
 
 /**
- * Debounce for session-activity-triggered auto-refresh. Session frames (and
- * their updatedAt bumps) arrive in bursts around one tool run, so coalesce
- * them into a single refresh.
+ * Debounce default for session-activity-triggered auto-refresh. Session frames
+ * (and their updatedAt bumps) arrive in bursts around one tool run.
  */
 export const AUTO_REFRESH_DEBOUNCE_MS = 600
 
@@ -151,10 +151,11 @@ function CommitComposer({ result, root, rpc, t, onCommitted, onActionError }: {
 }
 
 export function GitTab({ rpc, t }: GitTabProps) {
-  const { useSessions, useWorkspaces } = useDock()
+  const { useSessions, useWorkspaces, settings } = useDock()
   const sessions = useSessions(s => s)
   const workspaces = useWorkspaces(w => w)
   const root = resolveRoot(sessions, workspaces)
+  const { gitPollMs, gitDebounceMs } = useBetterSidebarSettings(settings)
 
   const [statusValue, setStatusValue] = useState<GitStatusResult | null>(null)
   const [logValue, setLogValue] = useState<GitLogResult | null>(null)
@@ -303,13 +304,17 @@ export function GitTab({ rpc, t }: GitTabProps) {
   }, [rpc, root, nextController, applyStatus])
 
   const autoRefreshTimerRef = useRef<number | null>(null)
+  // Debounce read at fire time so a live settings edit applies without
+  // re-creating the stable auto-refresh callback on every render.
+  const debounceMsRef = useRef(gitDebounceMs)
+  debounceMsRef.current = gitDebounceMs
   /** Debounced auto-refresh: session frames arrive in bursts, coalesce them. */
   const scheduleAutoRefresh = useCallback(() => {
     if (autoRefreshTimerRef.current !== null) window.clearTimeout(autoRefreshTimerRef.current)
     autoRefreshTimerRef.current = window.setTimeout(() => {
       autoRefreshTimerRef.current = null
       void autoRefresh()
-    }, AUTO_REFRESH_DEBOUNCE_MS)
+    }, debounceMsRef.current)
   }, [autoRefresh])
 
   /** Last observed activity stamp of the active session (dirty-signal). */
@@ -407,9 +412,9 @@ export function GitTab({ rpc, t }: GitTabProps) {
     if (root === undefined) return
     const id = window.setInterval(() => {
       void autoRefresh()
-    }, AUTO_REFRESH_STATUS_INTERVAL_MS)
+    }, gitPollMs)
     return () => window.clearInterval(id)
-  }, [root, autoRefresh])
+  }, [root, autoRefresh, gitPollMs])
 
   // Abort in-flight requests on unmount.
   useEffect(() => () => {

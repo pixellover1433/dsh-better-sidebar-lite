@@ -40,7 +40,7 @@ function renderDock(layout: DockLayoutActions) {
   registry.register(fakeTab('a', 10, 'Alpha'))
   registry.register(fakeTab('b', 20, 'Beta'))
   render(
-    <DockRoot useSessions={useSessionsStub as never} useWorkspaces={useWorkspacesStub as never} rpc={stubRpc} tabs={registry} t={t} layout={layout} />,
+    <DockRoot useSessions={useSessionsStub as never} useWorkspaces={useWorkspacesStub as never} rpc={stubRpc} tabs={registry} settings={undefined} t={t} layout={layout} />,
   )
   return registry
 }

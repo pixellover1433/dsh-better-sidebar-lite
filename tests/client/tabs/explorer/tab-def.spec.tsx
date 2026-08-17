@@ -53,6 +53,7 @@ describe('createExplorerTabDef', () => {
       rpc: noopRpc(),
       useSessions: ((sel) => sel(emptySessions)) as SnapshotSelectorHook<SessionListState>,
       useWorkspaces: ((sel) => sel(noWorkspaces)) as SnapshotSelectorHook<WorkspaceListState>,
+      settings: undefined,
     }
     render(<DockContext.Provider value={dockValue}>{def.renderPanel()}</DockContext.Provider>)
     expect(screen.getByRole('region', { name: 'Explorer' })).toBeTruthy()

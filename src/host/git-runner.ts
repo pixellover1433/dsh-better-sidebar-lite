@@ -33,8 +33,12 @@ export type RunGitResult =
 export interface GitRunnerOptions {
   /** Executable to invoke (default 'git'); a test may point at a script. */
   executable?: string
-  /** Per-run timeout in ms; expiry => kind timeout. */
-  timeoutMs: number
+  /**
+   * Per-run timeout in ms; expiry => kind timeout. May be a fixed number or a
+   * provider read at each run so a user-edited setting (git timeout) takes
+   * effect live without restarting the runner.
+   */
+  timeoutMs: number | (() => number)
   /** Env factory — a single seam so a future security review can narrow it. */
   env?: () => NodeJS.ProcessEnv
 }
@@ -53,12 +57,12 @@ function isExitError(err: { code?: unknown }): boolean {
 
 export class GitRunner {
   private readonly executable: string
-  private readonly timeoutMs: number
+  private readonly timeout: number | (() => number)
   private readonly env: () => NodeJS.ProcessEnv
 
   constructor(opts: GitRunnerOptions) {
     this.executable = opts.executable ?? 'git'
-    this.timeoutMs = opts.timeoutMs
+    this.timeout = opts.timeoutMs
     this.env = opts.env ?? (() => ({ ...process.env }))
   }
 
@@ -81,7 +85,10 @@ export class GitRunner {
       })
       // Timeout: kill the child; the close handler classifies the kill as a
       // timeout (externalAborted stays false so the kill is not "cancelled").
-      const timer = setTimeout(() => { child.kill() }, this.timeoutMs)
+      // The interval is read at run time so a live-edited setting applies to
+      // the next command without a restart.
+      const timeoutMs = typeof this.timeout === 'function' ? this.timeout() : this.timeout
+      const timer = setTimeout(() => { child.kill() }, timeoutMs)
 
       const chunks: Buffer[] = []
       const errChunks: Buffer[] = []
