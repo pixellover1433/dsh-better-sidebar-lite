@@ -1,9 +1,22 @@
 # dsh-better-sidebar-lite
 
+![Alt text](image/avatar.png)
+
 A right-side tabbed sidebar for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) **web**: **explorer** (workspace file tree) and **git** (changes & commits) tabs, built on an extensible **tab registry**.
 
 > **Status: development build in this workspace — NOT installed into any running dsh deployment.**
 > Installing is a documented, deliberate step (see Installing below).
+
+## TLDR;
+- Quick install via NPM:
+
+```
+dsh plugin add dsh-better-sidebar-lite --profile web
+```
+--- 
+![Alt text](image/review_1.png)
+---
+![Alt text](image/review_2.png)
 
 ## What it is
 
