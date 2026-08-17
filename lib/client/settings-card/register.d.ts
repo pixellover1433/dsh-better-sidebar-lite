@@ -19,11 +19,12 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface SlotMap {
         /**
          * Mirror of ui-settings-plugins' `settings.plugin.item` declaration (that
-         * package is not a runtime dependency here): one plugin card inside the
-         * Settings > Plugins > Plugin configuration section.
+         * package is not a runtime dependency here). Deployed dsh declares this slot
+         * KEYED (each configurable plugin card is one keyed cell); register with
+         * `key`, not `id`.
          */
         'settings.plugin.item': {
-            kind: 'list';
+            kind: 'keyed';
             scope: 'root';
             owner: {
                 children?: never;

@@ -22,10 +22,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     /**
      * Mirror of ui-settings-plugins' `settings.plugin.item` declaration (that
-     * package is not a runtime dependency here): one plugin card inside the
-     * Settings > Plugins > Plugin configuration section.
+     * package is not a runtime dependency here). Deployed dsh declares this slot
+     * KEYED (each configurable plugin card is one keyed cell); register with
+     * `key`, not `id`.
      */
-    'settings.plugin.item': { kind: 'list'; scope: 'root'; owner: { children?: never } }
+    'settings.plugin.item': { kind: 'keyed'; scope: 'root'; owner: { children?: never } }
   }
 }
 
@@ -41,10 +42,12 @@ export function registerBetterSidebarCard(
     hooks: { settingsCard: observable },
   }
 
+  // `settings.plugin.item` is a KEYED slot: each card is one keyed cell, so the
+  // registration carries `key` (not `id`) — a missing key throws at load, which
+  // is exactly the failure a fresh install would see if it regressed.
   const dispose = ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
     name: 'settings.plugin.item',
-    id: 'better-sidebar',
-    order: 100,
+    key: 'better-sidebar',
     locale: NS,
     inject: () => face,
   }, BetterSidebarSettingsCard))
