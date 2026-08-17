@@ -1,6 +1,7 @@
 import type { SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-ui-slots';
-import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client';
+import type { SessionListState, WorkspaceListState, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client';
 import type { BetterSidebarRpc } from '../rpc-client.ts';
+import type { BetterSidebarSettings } from '../../contract/settings.ts';
 import type { BetterSidebarTabRegistry } from '../tab-registry/contract.ts';
 /** Window event the plugin's global shortcut dispatches to flip the dock. */
 export declare const TOGGLE_EVENT = "better-sidebar:toggle";
@@ -16,12 +17,14 @@ export interface DockRootProps {
     useWorkspaces: SnapshotSelectorHook<WorkspaceListState>;
     rpc: BetterSidebarRpc;
     tabs: BetterSidebarTabRegistry;
+    /** Bound plugin settings scope (user-editable via Settings > Plugins); undefined when the seam is absent. */
+    settings: SettingsScope<BetterSidebarSettings> | undefined;
     /** Localized shell copy (plugin passes ctx.locale.bind(NS)). */
     t: TranslateNS<'betterSidebar.dock'>;
     /** Details-column panel actions (open/close the sidebar). */
     layout: DockLayoutActions;
 }
-export declare function DockRoot({ useSessions, useWorkspaces, rpc, tabs, t, layout }: DockRootProps): JSX.Element;
+export declare function DockRoot({ useSessions, useWorkspaces, rpc, tabs, settings, t, layout }: DockRootProps): JSX.Element;
 /** The details-column entry component (ADR-001): a closure over the injected
  * services that forwards the framework's global props to DockRoot. Lives here
  * (a .tsx module) so the .ts plugin entry never embeds JSX.
@@ -29,6 +32,7 @@ export declare function DockRoot({ useSessions, useWorkspaces, rpc, tabs, t, lay
 export declare function createDockEntry(services: {
     rpc: BetterSidebarRpc;
     tabs: BetterSidebarTabRegistry;
+    settings: SettingsScope<BetterSidebarSettings> | undefined;
     t: TranslateNS<'betterSidebar.dock'>;
     layout: DockLayoutActions;
 }): (props: DockRootPropsWithoutServices) => JSX.Element;

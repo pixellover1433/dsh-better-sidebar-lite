@@ -19,14 +19,18 @@ export type RunGitResult = RunGitOk | {
 export interface GitRunnerOptions {
     /** Executable to invoke (default 'git'); a test may point at a script. */
     executable?: string;
-    /** Per-run timeout in ms; expiry => kind timeout. */
-    timeoutMs: number;
+    /**
+     * Per-run timeout in ms; expiry => kind timeout. May be a fixed number or a
+     * provider read at each run so a user-edited setting (git timeout) takes
+     * effect live without restarting the runner.
+     */
+    timeoutMs: number | (() => number);
     /** Env factory — a single seam so a future security review can narrow it. */
     env?: () => NodeJS.ProcessEnv;
 }
 export declare class GitRunner {
     private readonly executable;
-    private readonly timeoutMs;
+    private readonly timeout;
     private readonly env;
     constructor(opts: GitRunnerOptions);
     /**

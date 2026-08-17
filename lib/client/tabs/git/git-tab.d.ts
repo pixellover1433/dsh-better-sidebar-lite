@@ -1,11 +1,10 @@
 import type { BetterSidebarRpc } from '../../rpc-client.ts';
 import type { GitKey } from './locales.ts';
-/** Fallback poll cadence (status-only; the log follows a status change). */
+/** Fallback poll cadence default (status-only; the log follows a status change). */
 export declare const AUTO_REFRESH_STATUS_INTERVAL_MS = 8000;
 /**
- * Debounce for session-activity-triggered auto-refresh. Session frames (and
- * their updatedAt bumps) arrive in bursts around one tool run, so coalesce
- * them into a single refresh.
+ * Debounce default for session-activity-triggered auto-refresh. Session frames
+ * (and their updatedAt bumps) arrive in bursts around one tool run.
  */
 export declare const AUTO_REFRESH_DEBOUNCE_MS = 600;
 export interface GitTabProps {

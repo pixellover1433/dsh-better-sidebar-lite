@@ -7,5 +7,6 @@ export * from './versions.ts';
 export * from './errors.ts';
 export * from './explorer.ts';
 export * from './git.ts';
+export * from './settings.ts';
 export * from './rpc.ts';
 //# sourceMappingURL=index.d.ts.map

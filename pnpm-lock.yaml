@@ -12,6 +12,9 @@ importers:
         specifier: ^3.18.1
         version: 3.18.1
     devDependencies:
+      '@deepseek-ai/dsh-settings':
+        specifier: link:../deepseek-harness/packages/settings/settings
+        version: link:../deepseek-harness/packages/settings/settings
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1

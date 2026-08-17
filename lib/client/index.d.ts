@@ -39,7 +39,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         };
     }
 }
-/** Required services. */
+/** Required services. `settingsScope` is optional (present when ui-settings is
+ * composed); when absent the tabs keep their built-in defaults and no card is
+ * registered into Settings > Plugins. */
 export declare const inject: string[];
 /**
  * Client plugin body: provide ctx.betterSidebar, register shell + built-in
