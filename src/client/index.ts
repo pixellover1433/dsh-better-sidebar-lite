@@ -22,7 +22,8 @@ import { createDockEntry, TOGGLE_EVENT } from './dock/dock.tsx'
 import { createSidebarToggleAction } from './dock/footer-toggle.tsx'
 import { createExplorerTabDef } from './tabs/explorer/tab-def.ts'
 import { createGitTabDef } from './tabs/git/tab-def.ts'
-import { registerBetterSidebarCard } from './settings-card/register.ts'
+import { registerBetterSidebarCard, NS as CARD_PLUGINS_NS } from './settings-card/register.ts'
+import { en as cardPluginsEn, zh as cardPluginsZh } from './settings-card/locales.ts'
 import { en as dockEn, NS as DOCK_NS, zh as dockZh } from './locales.ts'
 import { en as explorerEn, NS as EXPLORER_NS, zh as explorerZh } from './tabs/explorer/locales.ts'
 import { en as gitEn, NS as GIT_NS, zh as gitZh } from './tabs/git/locales.ts'
@@ -94,6 +95,10 @@ export function apply(ctx: ClientContext): void {
     const disposeShellLocale = ctx.locale.register(DOCK_NS, { zh: dockZh, en: dockEn })
     const disposeExplorerLocale = ctx.locale.register(EXPLORER_NS, { zh: explorerZh, en: explorerEn })
     const disposeGitLocale = ctx.locale.register(GIT_NS, { zh: gitZh, en: gitEn })
+    // Locale for this plugin's settings card (Settings > Plugins). Registered
+    // even when the settings seam is absent — the namespaced card reads it only
+    // if it mounts, and a duplicate namespace would throw.
+    const disposeCardLocale = ctx.locale.register(CARD_PLUGINS_NS, { zh: cardPluginsZh, en: cardPluginsEn })
 
     const disposeGitTab = tabs.register(createGitTabDef(ctx, { rpc }))
     const disposeExplorerTab = tabs.register(createExplorerTabDef(ctx, { rpc, emitter: explorer }))
@@ -137,6 +142,7 @@ export function apply(ctx: ClientContext): void {
       disposeGitLocale()
       disposeExplorerLocale()
       disposeShellLocale()
+      disposeCardLocale()
       // provide()'s disposer settles asynchronously; teardown is fire-and-forget.
       void disposeProvide()
     }

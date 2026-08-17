@@ -14,6 +14,7 @@
  */
 import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client';
 import type { BetterSidebarSettings } from '../../contract/settings.ts';
+import { NS } from './locales.ts';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface SlotMap {
         /**
@@ -33,5 +34,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export declare function registerBetterSidebarCard(ctx: ClientContext, services: {
     scope: SettingsScope<BetterSidebarSettings>;
 }): () => void;
+export { NS };
 export type { SidebarCardActions, SidebarCardState } from './controller.ts';
 //# sourceMappingURL=register.d.ts.map

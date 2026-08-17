@@ -16,6 +16,7 @@ import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runti
 import type { BetterSidebarSettings } from '../../contract/settings.ts'
 import { SidebarSettingsCardController } from './controller.ts'
 import { BetterSidebarSettingsCard } from './BetterSidebarSettingsCard.tsx'
+import { NS } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
@@ -44,9 +45,11 @@ export function registerBetterSidebarCard(
     name: 'settings.plugin.item',
     id: 'better-sidebar',
     order: 100,
+    locale: NS,
     inject: () => face,
   }, BetterSidebarSettingsCard))
   return dispose
 }
 
+export { NS }
 export type { SidebarCardActions, SidebarCardState } from './controller.ts'
