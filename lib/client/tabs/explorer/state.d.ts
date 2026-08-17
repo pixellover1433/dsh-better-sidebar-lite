@@ -6,10 +6,12 @@
  * synchronous; the stale-response guards (per-path request seq + per-tab root
  * generation) discard superseded async results.
  */
-import type { ExplorerEntry, ExplorerListResult } from '../../../contract/explorer.ts';
+import type { ExplorerEntry, ExplorerListResult, ExplorerStampRequest, ExplorerStampResult } from '../../../contract/explorer.ts';
 import type { SidebarError, SidebarResult } from '../../../contract/errors.ts';
 /** Injected directory listing transport (the panel wires it to the RPC facade). */
 export type DirectoryLoader = (path: string, signal: AbortSignal) => Promise<SidebarResult<ExplorerListResult>>;
+/** Injected change-stamp transport used by the auto-refresh poll (ADR-004 §3 amendment). */
+export type StampLoader = (request: ExplorerStampRequest, signal: AbortSignal) => Promise<SidebarResult<ExplorerStampResult>>;
 export type LoadState = 'idle' | 'loading' | 'error' | 'loaded';
 /** One directory node (dirs only; files never get nodes). */
 export interface NodeState {
@@ -56,6 +58,12 @@ export declare class ExplorerStore {
     private readonly seqs;
     /** Per-path AbortController to cancel superseded listings at the transport. */
     private readonly controllers;
+    /** Last per-dir change stamp (undefined = the dir vanished); seeded per root. */
+    private readonly seenStamps;
+    /** True once the first stamp sweep of the current root recorded a baseline. */
+    private stampsSeeded;
+    /** One stamp poll at a time; overlapping interval ticks collapse. */
+    private stampPolling;
     private readonly listeners;
     constructor(loader: DirectoryLoader);
     snapshot(): ExplorerState;
@@ -79,6 +87,25 @@ export declare class ExplorerStore {
      * place (diff-in-place per D2 §5.2). Keeps expansion/selection.
      */
     refresh(): Promise<void>;
+    /**
+     * Silent in-place refresh of the given loaded directories (ADR-004 §3
+     * amendment, explorer): re-lists them without flipping the surface back to
+     * 'loading', so an auto-refresh never blanks the tree. Expansion, selection,
+     * and focus are preserved by the same diff-in-place mechanics as refresh().
+     * Paths without a node are skipped.
+     */
+    refreshDirs(paths: readonly string[]): Promise<void>;
+    /**
+     * Stamp sweep (ADR-004 §3 amendment, explorer): ask the host for each loaded
+     * directory's change stamp and re-list ONLY the directories whose stamp moved
+     * since the last sweep. The first sweep of a root refreshes every loaded
+     * directory once (it also closes the window of changes made between the
+     * initial load and the first sweep); later sweeps are pure diffs. A vanished
+     * directory stamps undefined and drives the existing not-found prune; a
+     * vanished root makes the whole request fail with not-found, which routes
+     * through loadRoot so the root-error surface appears.
+     */
+    pollStamps(stampLoader: StampLoader): Promise<void>;
     /** Select a path (single-select); passes through undefined to clear. */
     select(path: string | undefined): void;
     /** Move keyboard focus to a path (kept separate from selection). */

@@ -3,11 +3,12 @@
  * (ADR-002). Hand-rolled type-predicate guards keep the contract
  * dependency-free and usable on both halves.
  */
-import type { ExplorerListRequest, ExplorerListResult } from './explorer.ts';
+import type { ExplorerListRequest, ExplorerListResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts';
 import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts';
 /** Endpoint names (also the wire method segment after the channel). */
 export declare const Endpoints: {
     readonly explorerList: "explorer/list";
+    readonly explorerStamp: "explorer/stamp";
     readonly gitStatus: "git/status";
     readonly gitLog: "git/log";
     readonly gitStage: "git/stage";
@@ -20,6 +21,7 @@ export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints];
 /** Request payload per endpoint. */
 export interface BetterSidebarReqMap {
     'explorer/list': ExplorerListRequest;
+    'explorer/stamp': ExplorerStampRequest;
     'git/status': GitStatusRequest;
     'git/log': GitLogRequest;
     'git/stage': GitStageRequest;
@@ -31,6 +33,7 @@ export interface BetterSidebarReqMap {
 /** Success value per endpoint. */
 export interface BetterSidebarResMap {
     'explorer/list': ExplorerListResult;
+    'explorer/stamp': ExplorerStampResult;
     'git/status': GitStatusResult;
     'git/log': GitLogResult;
     'git/stage': null;
@@ -51,8 +54,11 @@ export declare const HOST_DEFAULTS: {
     readonly maxRequestPathLength: 4096;
     /** Cumulative name+path byte budget for one listing. */
     readonly totalListingPathBytes: number;
+    /** Per-request cap on stamp-polled directories (loaded/expanded dirs). */
+    readonly maxStampDirs: 128;
 };
 export declare function isExplorerListRequest(v: unknown): v is ExplorerListRequest;
+export declare function isExplorerStampRequest(v: unknown): v is ExplorerStampRequest;
 export declare function isGitStatusRequest(v: unknown): v is GitStatusRequest;
 export declare function isGitCommitDetailRequest(v: unknown): v is GitCommitDetailRequest;
 export declare function isGitStageRequest(v: unknown): v is GitStageRequest;

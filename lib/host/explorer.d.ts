@@ -1,4 +1,4 @@
-import { type ExplorerListRequest, type ExplorerListResult, type SidebarError } from '../contract/index.ts';
+import { type ExplorerListRequest, type ExplorerListResult, type ExplorerStampRequest, type ExplorerStampResult, type SidebarError } from '../contract/index.ts';
 import type { FsPort } from './port-fs.ts';
 /** ExplorerService construction options. */
 export interface ExplorerOptions {
@@ -21,6 +21,15 @@ export declare class ExplorerService {
      * Rejects with a typed SidebarError on invalid roots / fs errors.
      */
     list(request: ExplorerListRequest): Promise<ExplorerListResult>;
+    /**
+     * Auto-refresh stamp sweep (ADR-004 §3 amendment): validate the root like a
+     * list, then return each requested directory's mtimeMs stamp. A directory's
+     * mtime moves exactly when a direct child is added/removed/renamed, so the
+     * client can diff stamps instead of re-listing idle directories. A vanished
+     * (or out-of-root) directory stamps `undefined`; a vanished root fails the
+     * whole request like a list would.
+     */
+    stamp(request: ExplorerStampRequest): Promise<ExplorerStampResult>;
     /** Validate the root before any listing (D6 §4.6). */
     private assertListableRoot;
     private readDir;
