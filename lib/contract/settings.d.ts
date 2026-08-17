@@ -38,4 +38,9 @@ export interface BetterSidebarSettings {
 }
 /** Last-seen defaults for callers that keep their own copy of one field. */
 export declare const SETTING_FIELDS: readonly (keyof BetterSidebarSettings)[];
+/** User-editable bounds shared by the host schema and the client card validate. */
+export declare const SETTING_RANGES: Record<keyof BetterSidebarSettings, {
+    min: number;
+    max: number;
+}>;
 //# sourceMappingURL=settings.d.ts.map

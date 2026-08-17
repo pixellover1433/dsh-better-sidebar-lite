@@ -13,6 +13,7 @@
  */
 import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { BetterSidebarSettings } from '../../contract/settings.ts'
+import { SETTING_RANGES } from '../../contract/settings.ts'
 
 /** The fields this card edits, in display order. */
 export const CARD_FIELDS: readonly (keyof BetterSidebarSettings)[] = [
@@ -56,6 +57,16 @@ interface Staged {
 
 function formatNumber(value: unknown): string {
   return typeof value === 'number' ? String(value) : ''
+}
+
+/** Whether a draft is a number the field's host schema accepts (finite, in range). */
+function validNumber(field: string, text: string): boolean {
+  const trimmed = text.trim()
+  if (trimmed === '') return false // empty means clear, handled separately
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed)) return false
+  const range = SETTING_RANGES[field as keyof BetterSidebarSettings]
+  return parsed >= range.min && parsed <= range.max
 }
 
 function isOverridden(user: unknown, field: string): boolean {
@@ -139,8 +150,7 @@ export class SidebarSettingsCardController {
       }
     }
     if (entry.clear) return { text: entry.text, overridden: false, invalid: false }
-    const parsed = Number(entry.text.trim())
-    const valid = entry.text.trim() !== '' && Number.isFinite(parsed)
+    const valid = validNumber(name, entry.text)
     return { text: entry.text, overridden: valid, invalid: !valid }
   }
 
@@ -162,33 +172,50 @@ export class SidebarSettingsCardController {
   }
 
   private async save(): Promise<void> {
-    const writes: (() => Promise<void>)[] = []
+    const writes: Array<{ field: string; expected: unknown; clear: boolean; run: () => Promise<void> }> = []
     for (const field of CARD_FIELDS) {
       const name = field as string
       const entry = this.staged.get(name)
       if (entry === undefined) continue
       if (entry.clear) {
-        writes.push(() => this.scope.unset(name))
+        writes.push({ field: name, expected: undefined, clear: true, run: () => this.scope.unset(name) })
         continue
       }
+      // A draft outside the field's accepted range blocks the save (the Save
+      // button is disabled while invalid); never send it to the Host.
+      if (!validNumber(name, entry.text)) continue
       const parsed = Number(entry.text.trim())
-      if (!Number.isFinite(parsed)) continue // invalid blocks the save
-      writes.push(() => this.scope.set(name, parsed))
+      writes.push({ field: name, expected: parsed, clear: false, run: () => this.scope.set(name, parsed) })
     }
     if (writes.length === 0 || this.saving) return
     this.saving = true
     this.failed = false
     this.current = this.project()
     this.emit()
+    let landedAll = true
     try {
-      for (const write of writes) { await write() }
-      this.staged.clear()
+      // The Host is authoritative on whether a write landed. One failed write
+      // keeps every remaining draft so the card never silently reverts to the
+      // served default for a value the user asked for.
+      for (const write of writes) {
+        await write.run()
+        const snapshot = this.scope.getSnapshot()
+        const value = (snapshot.value as Record<string, unknown> | undefined)?.[write.field]
+        const user = snapshot.user as Record<string, unknown> | undefined
+        const landed = write.clear
+          ? !(user !== undefined && Object.hasOwn(user, write.field))
+          : value === write.expected
+        if (!landed) landedAll = false
+      }
     } catch {
-      this.failed = true
+      landedAll = false
+    } finally {
+      if (landedAll) this.staged.clear()
+      this.saving = false
+      this.failed = !landedAll
+      this.current = this.project()
+      this.emit()
     }
-    this.saving = false
-    this.current = this.project()
-    this.emit()
   }
 
   private emit(): void {

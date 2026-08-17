@@ -42,3 +42,12 @@ export interface BetterSidebarSettings {
 
 /** Last-seen defaults for callers that keep their own copy of one field. */
 export const SETTING_FIELDS = Object.keys(SETTINGS_DEFAULTS) as unknown as readonly (keyof BetterSidebarSettings)[]
+
+/** User-editable bounds shared by the host schema and the client card validate. */
+export const SETTING_RANGES: Record<keyof BetterSidebarSettings, { min: number; max: number }> = {
+  explorerPollMs: { min: 100, max: 300_000 },
+  explorerDebounceMs: { min: 50, max: 60_000 },
+  gitPollMs: { min: 100, max: 300_000 },
+  gitDebounceMs: { min: 50, max: 60_000 },
+  gitTimeoutMs: { min: 100, max: 120_000 },
+}

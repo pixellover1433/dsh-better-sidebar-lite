@@ -24,19 +24,26 @@ import z from '@deepseek-ai/schemastery'
 import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import {
   SETTINGS_DEFAULTS,
+  SETTING_RANGES,
   SETTINGS_NAMESPACE,
   type BetterSidebarSettings,
 } from '../contract/index.ts'
 
 export const BETTER_SIDEBAR_NAMESPACE = settingsNamespace(SETTINGS_NAMESPACE)
 
+/** One natural-number field built from the shared range constants. */
+function naturalField(field: keyof BetterSidebarSettings) {
+  const { min, max } = SETTING_RANGES[field]
+  return z.natural().min(min).max(max).default(SETTINGS_DEFAULTS[field])
+}
+
 /** Schemastery schema for the plugin's user-editable section. */
 export const BetterSidebarSettingsSchema: z<BetterSidebarSettings> = z.object({
-  explorerPollMs: z.natural().min(1_000).max(300_000).default(SETTINGS_DEFAULTS.explorerPollMs),
-  explorerDebounceMs: z.natural().min(100).max(60_000).default(SETTINGS_DEFAULTS.explorerDebounceMs),
-  gitPollMs: z.natural().min(1_000).max(300_000).default(SETTINGS_DEFAULTS.gitPollMs),
-  gitDebounceMs: z.natural().min(100).max(60_000).default(SETTINGS_DEFAULTS.gitDebounceMs),
-  gitTimeoutMs: z.natural().min(100).max(120_000).default(SETTINGS_DEFAULTS.gitTimeoutMs),
+  explorerPollMs: naturalField('explorerPollMs'),
+  explorerDebounceMs: naturalField('explorerDebounceMs'),
+  gitPollMs: naturalField('gitPollMs'),
+  gitDebounceMs: naturalField('gitDebounceMs'),
+  gitTimeoutMs: naturalField('gitTimeoutMs'),
 })
 
 /**
