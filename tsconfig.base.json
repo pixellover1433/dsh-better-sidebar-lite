@@ -80,6 +80,9 @@
     "@deepseek-ai/dsh-settings/types": [
         "../deepseek-harness/packages/settings/settings/lib/types/types.d.ts"
     ],
+    "@deepseek-ai/dsh-llm": [
+        "../deepseek-harness/packages/llm/llm/lib/types/index.d.ts"
+    ],
     "@deepseek-ai/dsh-api-remotes/client": [
         "../deepseek-harness/packages/api/remotes/lib/types/client/index.d.ts"
     ],

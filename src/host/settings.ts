@@ -4,12 +4,20 @@
  * cadences and the git timeout — against the dsh settings seam so a browser
  * (Settings > Plugins > Plugin configuration) can read and edit them live.
  *
- * The register call is guarded: it only runs when a SettingsProvider is
- * composed in the deployment. Absence is not fatal — the plugin still works
- * with the contract defaults, exactly as it does today (the tab auto-refresh
- * keeps its fallback cadence and the git timeout its default). Registration is
- * itself an effect on the injected settings-context's fiber, so unloading the
- * owner plugin removes the namespace and its observers (HMR-safe).
+ * dsh exposes a plugin's settings namespace to the browser only through an
+ * allowlist in `api-proxy` (`WEB_SETTINGS_NAMESPACES`); a namespace absent
+ * there answers `settings-not-exposed` even when its owner registered it. To
+ * let a plugin's namespace show up without a change inside the dsh checkout,
+ * the plugin ALSO registers itself as a configurable provider in the LLM
+ * directory — `api-proxy.exposedNamespaces()` includes every
+ * `listConfigurableProviders()` `settingsNs` — which self-exposes the
+ * namespace at runtime. This is the one existing self-registration seam; its
+ * minor cost is a single read-only "provider" card on the Settings > Models
+ * page (it carries no adapter route, so it never reaches the model picker).
+ *
+ * Both register calls are guarded: they only run when the corresponding seams
+ * (`settings`, `llm`) are composed. Absence is not fatal — the plugin still
+ * works with the contract defaults.
  */
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -38,5 +46,30 @@ export const BetterSidebarSettingsSchema: z<BetterSidebarSettings> = z.object({
 export function registerBetterSidebarSettings(ctx: Context): void {
   ctx.inject(['settings'], (settingsCtx) => {
     settingsCtx.settings.register(BETTER_SIDEBAR_NAMESPACE, BetterSidebarSettingsSchema)
+  })
+}
+
+/** Display name used for the self-exposure "provider" card on the Models page. */
+export const BETTER_SIDEBAR_PROVIDER = 'dsh-better-sidebar-lite'
+export const BETTER_SIDEBAR_PROVIDER_NAME = 'Better Sidebar'
+
+/**
+ * Self-expose the settings namespace to the browser configuration client by
+ * registering this plugin as a configurable provider (see the module doc).
+ * Registration is an effect on the injected llm-context's fiber, so unloading
+ * withdraws it (HMR-safe). No-op when the `llm` seam is absent.
+ * @param ctx - host context that may acquire the `llm` service.
+ */
+export function selfExposeBetterSidebarSettings(ctx: Context): void {
+  ctx.inject(['llm'], (llmCtx) => {
+    llmCtx.effect(() => {
+      const handle = llmCtx.llm.registerConfigurableProviders([{
+        provider: BETTER_SIDEBAR_PROVIDER,
+        displayName: BETTER_SIDEBAR_PROVIDER_NAME,
+        settingsNs: SETTINGS_NAMESPACE,
+        settingsPath: [],
+      }])
+      return handle
+    }, 'better-sidebar: self-expose settings namespace')
   })
 }

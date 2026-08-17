@@ -91,7 +91,16 @@ The tabs re-read these live, so editing them takes effect immediately (the explo
 | `hidePatterns` | string[] | `['.git','node_modules']` | Basenames filtered from listings (no reveal toggle in v1). |
 | `gitExecutable` | string | `git` | Test/override seam. |
 
-> **Runtime-visibility caveat.** The dsh `api-proxy` exposes a plugin's settings namespace to the browser only through an allowlist in `packages/host/apiproxy` (`WEB_SETTINGS_NAMESPACES`). This plugin registers its `dsh-better-sidebar` namespace and contributes a card into the Plugins section, but until that allowlist is extended inside the dsh checkout the card does not render at runtime (the namespace answers `settings-not-exposed`). The tabs still read the values when the seam is composed; the card is the editing surface.
+> **Runtime self-exposure.** dsh only exposes a plugin's settings namespace to
+> the browser through an allowlist in `api-proxy` (`WEB_SETTINGS_NAMESPACES`).
+> To avoid requiring an edit inside the dsh checkout, the host half **self-exposes**
+> its `dsh-better-sidebar` namespace by registering itself as a configurable
+> LLM provider — `api-proxy.exposedNamespaces()` includes every
+> `listConfigurableProviders()` `settingsNs`, so the namespace is served at
+> runtime without any dsh change. The minor cost of riding this existing seam is
+> a single read-only "Better Sidebar" card on the Settings → Models page; it
+> carries no adapter route, so it never appears in the model picker and affects
+> nothing else.
 
 ## Extension guide — add a tab
 
