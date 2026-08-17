@@ -13,7 +13,7 @@
  * convention for ui-sidebar's `sidebar.footer.action`.
  */
 import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
-import type { BetterSidebarSettings } from '../../contract/settings.ts'
+import { SETTINGS_NAMESPACE, type BetterSidebarSettings } from '../../contract/settings.ts'
 import { SidebarSettingsCardController } from './controller.ts'
 import { BetterSidebarSettingsCard } from './BetterSidebarSettingsCard.tsx'
 import { NS } from './locales.ts'
@@ -42,12 +42,16 @@ export function registerBetterSidebarCard(
     hooks: { settingsCard: observable },
   }
 
-  // `settings.plugin.item` is a KEYED slot: each card is one keyed cell, so the
-  // registration carries `key` (not `id`) — a missing key throws at load, which
-  // is exactly the failure a fresh install would see if it regressed.
+  // `settings.plugin.item` is a KEYED slot (dsh v0.1.0-rc.7): each card is one
+  // keyed cell whose key is the settings namespace it edits. Since rc.7 the
+  // Host serves every registered namespace and the Plugins configuration tab
+  // dispatches a card by matching this key against `settings.describe`'s
+  // served namespaces — so the key must equal the namespace id exactly
+  // (`dsh-better-sidebar`), not some display label; a mismatch means the card
+  // is never dispatched.
   const dispose = ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
     name: 'settings.plugin.item',
-    key: 'better-sidebar',
+    key: SETTINGS_NAMESPACE,
     locale: NS,
     inject: () => face,
   }, BetterSidebarSettingsCard))

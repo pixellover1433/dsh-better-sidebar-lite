@@ -13,7 +13,6 @@ import { createChannelHandler } from './rpc.ts'
 import {
   BETTER_SIDEBAR_NAMESPACE,
   registerBetterSidebarSettings,
-  selfExposeBetterSidebarSettings,
 } from './settings.ts'
 import { SETTINGS_DEFAULTS } from '../contract/index.ts'
 
@@ -38,9 +37,6 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
     }
   }
   registerBetterSidebarSettings(ctx)
-  // Self-expose the settings namespace to the browser config client (so the
-  // Settings > Plugins card is visible at runtime without a dsh api-proxy edit).
-  selfExposeBetterSidebarSettings(ctx)
   const explorer = new ExplorerService(fsNode, {
     maxEntries: cfg.maxEntriesPerListing,
     hidePatterns: cfg.hidePatterns,

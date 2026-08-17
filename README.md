@@ -13,6 +13,10 @@ A right-side tabbed sidebar for [DeepSeek Harness](https://github.com/deepseek-a
 ```
 dsh plugin add dsh-better-sidebar-lite@0.0.2-beta.2 --profile web
 ```
+
+(⚠️ v0.0.1-beta.* compatible with deepseek-harness below v0.1.0-rc.7 only)
+(⚠️ v0.0.2-beta.* compatible with deepseek-harness v0.1.0-rc.7 and above only)
+
 --- 
 ![Alt text](image/review_1.png)
 ---
@@ -91,16 +95,13 @@ The tabs re-read these live, so editing them takes effect immediately (the explo
 | `hidePatterns` | string[] | `['.git','node_modules']` | Basenames filtered from listings (no reveal toggle in v1). |
 | `gitExecutable` | string | `git` | Test/override seam. |
 
-> **Runtime self-exposure.** dsh only exposes a plugin's settings namespace to
-> the browser through an allowlist in `api-proxy` (`WEB_SETTINGS_NAMESPACES`).
-> To avoid requiring an edit inside the dsh checkout, the host half **self-exposes**
-> its `dsh-better-sidebar` namespace by registering itself as a configurable
-> LLM provider — `api-proxy.exposedNamespaces()` includes every
-> `listConfigurableProviders()` `settingsNs`, so the namespace is served at
-> runtime without any dsh change. The minor cost of riding this existing seam is
-> a single read-only "Better Sidebar" card on the Settings → Models page; it
-> carries no adapter route, so it never appears in the model picker and affects
-> nothing else.
+> **Settings-card exposure (dsh ≥ v0.1.0-rc.7).** Since rc.7 dsh lets plugins
+> register their own settings cards: the Host serves **every** registered
+> settings namespace (no `api-proxy` allowlist, no `registerConfigurableProviders`
+> self-exposure needed), and the **Settings → Plugins → Plugin configuration**
+> tab dispatches one card per served namespace. The host half registers the
+> `dsh-better-sidebar` namespace and the browser half registers a card keyed
+> `dsh-better-sidebar` — the join key — so the two pair up automatically.
 
 ## Extension guide — add a tab
 

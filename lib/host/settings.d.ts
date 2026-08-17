@@ -4,20 +4,17 @@
  * cadences and the git timeout — against the dsh settings seam so a browser
  * (Settings > Plugins > Plugin configuration) can read and edit them live.
  *
- * dsh exposes a plugin's settings namespace to the browser only through an
- * allowlist in `api-proxy` (`WEB_SETTINGS_NAMESPACES`); a namespace absent
- * there answers `settings-not-exposed` even when its owner registered it. To
- * let a plugin's namespace show up without a change inside the dsh checkout,
- * the plugin ALSO registers itself as a configurable provider in the LLM
- * directory — `api-proxy.exposedNamespaces()` includes every
- * `listConfigurableProviders()` `settingsNs` — which self-exposes the
- * namespace at runtime. This is the one existing self-registration seam; its
- * minor cost is a single read-only "provider" card on the Settings > Models
- * page (it carries no adapter route, so it never reaches the model picker).
+ * Since dsh v0.1.0-rc.7 ("Enable plugins to register their own settings
+ * cards"), the Host serves every registered settings namespace: `settings
+ * .describe` on the api-proxy returns the whole registration catalog and the
+ * Plugins configuration tab dispatches one card per served namespace it also
+ * has a browser-side registration for. So registering the namespace here is
+ * the complete host half — no allowlist edit and no `registerConfigurable
+ * Providers` self-exposure are needed anymore (that was the pre-rc.7 seam,
+ * which also cost a read-only Models-page card and is now gone).
  *
- * Both register calls are guarded: they only run when the corresponding seams
- * (`settings`, `llm`) are composed. Absence is not fatal — the plugin still
- * works with the contract defaults.
+ * Registration is guarded: it only runs when the `settings` seam is composed.
+ * Absence is not fatal — the plugin still works with the contract defaults.
  */
 import type { Context } from '@deepseek-ai/cordis';
 import z from '@deepseek-ai/schemastery';
@@ -30,15 +27,4 @@ export declare const BetterSidebarSettingsSchema: z<BetterSidebarSettings>;
  * @param ctx - host context that may acquire the `settings` service.
  */
 export declare function registerBetterSidebarSettings(ctx: Context): void;
-/** Display name used for the self-exposure "provider" card on the Models page. */
-export declare const BETTER_SIDEBAR_PROVIDER = "dsh-better-sidebar-lite";
-export declare const BETTER_SIDEBAR_PROVIDER_NAME = "Better Sidebar";
-/**
- * Self-expose the settings namespace to the browser configuration client by
- * registering this plugin as a configurable provider (see the module doc).
- * Registration is an effect on the injected llm-context's fiber, so unloading
- * withdraws it (HMR-safe). No-op when the `llm` seam is absent.
- * @param ctx - host context that may acquire the `llm` service.
- */
-export declare function selfExposeBetterSidebarSettings(ctx: Context): void;
 //# sourceMappingURL=settings.d.ts.map

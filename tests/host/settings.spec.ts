@@ -9,12 +9,9 @@ import { Context } from '@deepseek-ai/cordis'
 import { apply } from '../../src/host/index.ts'
 import type { ConnectionRpcHandler, HostConnectionHandle } from '@deepseek-ai/dsh-client-connection'
 import {
-  BETTER_SIDEBAR_PROVIDER,
-  BETTER_SIDEBAR_PROVIDER_NAME,
   BetterSidebarSettingsSchema,
   BETTER_SIDEBAR_NAMESPACE,
   registerBetterSidebarSettings,
-  selfExposeBetterSidebarSettings,
 } from '../../src/host/settings.ts'
 import { SETTINGS_DEFAULTS, SETTINGS_NAMESPACE } from '../../src/contract/index.ts'
 
@@ -63,17 +60,21 @@ describe('registerBetterSidebarSettings', () => {
   })
 })
 
-describe('selfExposeBetterSidebarSettings', () => {
-  it('registers the plugin as a configurable provider when apply composes llm + connection', async () => {
+describe('rc.7 settings-card exposure (no self-expose needed)', () => {
+  it('serves the registered namespace so the Plugins tab can dispatch its card', async () => {
+    // dsh v0.1.0-rc.7 serves EVERY registered settings namespace through
+    // settings.describe — the Plugins configuration tab pairs a browser card
+    // with a served namespace by key. Registering the namespace is therefore
+    // the complete host half; no registerConfigurableProviders self-exposure
+    // (the pre-rc.7 seam) is used anymore.
     const ctx = new Context()
-    const registered: unknown[] = []
-    const llm = {
-      registerConfigurableProviders: (entries: unknown) => {
-        registered.push(entries)
-        return () => {} // disposer
+    const served: string[] = []
+    ctx.provide('settings', {
+      register: (_ns: unknown, _schema: unknown) => {
+        served.push(String(BETTER_SIDEBAR_NAMESPACE))
+        return { get: () => undefined, watch: () => () => {} }
       },
-    }
-    ctx.provide('llm', llm as never)
+    } as never)
     const captured: { handler?: ConnectionRpcHandler } = {}
     const connection = {
       rpc: {
@@ -86,23 +87,17 @@ describe('selfExposeBetterSidebarSettings', () => {
     ctx.provide('connection', connection)
 
     apply(ctx, {})
-    // The llm-injected effect settles asynchronously (Cordis inject pipeline).
-    await vi.waitFor(() => expect(registered).toHaveLength(1))
-    const entry = (registered[0] as [{
-      provider: string; displayName: string; settingsNs: string; settingsPath: string[]
-    }])[0]
-    expect(entry.provider).toBe(BETTER_SIDEBAR_PROVIDER)
-    expect(entry.displayName).toBe(BETTER_SIDEBAR_PROVIDER_NAME)
-    expect(entry.settingsNs).toBe(SETTINGS_NAMESPACE)
-    expect(entry.settingsPath).toEqual([])
+    await vi.waitFor(() => expect(served).toContain(SETTINGS_NAMESPACE))
+    expect(served).toEqual([SETTINGS_NAMESPACE])
   })
 
-  it('is a no-op (never throws) when the llm seam is absent', () => {
-    // No llm provider composed: self-exposure must not throw.
+  it('is a no-op (never throws) when the settings seam is absent', () => {
+    // No settings provider composed: registration must not throw nor touch any
+    // provider — the plugin still works with the contract defaults.
     const ctx = new Context()
     let error: unknown
     try {
-      selfExposeBetterSidebarSettings(ctx)
+      registerBetterSidebarSettings(ctx)
     } catch (e) {
       error = e
     }

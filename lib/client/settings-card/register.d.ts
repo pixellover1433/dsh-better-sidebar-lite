@@ -13,7 +13,7 @@
  * convention for ui-sidebar's `sidebar.footer.action`.
  */
 import type { ClientContext, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client';
-import type { BetterSidebarSettings } from '../../contract/settings.ts';
+import { type BetterSidebarSettings } from '../../contract/settings.ts';
 import { NS } from './locales.ts';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface SlotMap {
