@@ -11,6 +11,8 @@ import {
   type ExplorerEntry,
   type ExplorerListRequest,
   type ExplorerListResult,
+  type ExplorerStampRequest,
+  type ExplorerStampResult,
   type SidebarError,
 } from '../contract/index.ts'
 import type { FsPort } from './port-fs.ts'
@@ -67,6 +69,39 @@ export class ExplorerService {
     }
     entries.sort(compareEntries)
     return this.applyCaps(root, entries)
+  }
+
+  /**
+   * Auto-refresh stamp sweep (ADR-004 §3 amendment): validate the root like a
+   * list, then return each requested directory's mtimeMs stamp. A directory's
+   * mtime moves exactly when a direct child is added/removed/renamed, so the
+   * client can diff stamps instead of re-listing idle directories. A vanished
+   * (or out-of-root) directory stamps `undefined`; a vanished root fails the
+   * whole request like a list would.
+   */
+  async stamp(request: ExplorerStampRequest): Promise<ExplorerStampResult> {
+    const root = await this.assertListableRoot(request.path)
+    const stamps: Record<string, number | undefined> = {}
+    const seen = new Set<string>()
+    for (const dir of request.dirs) {
+      if (seen.has(dir)) continue
+      seen.add(dir)
+      // A loaded dir always sits under the root (the client only polls its own
+      // tree); out-of-root or relative dirs stamp undefined rather than leak
+      // stat reach outside the trust fence.
+      if (!this.fs.isAbsolute(dir) || !this.fs.isInside(dir, root)) {
+        stamps[dir] = undefined
+        continue
+      }
+      let st
+      try {
+        st = await this.fs.stat(dir, { throwIfNoEntry: false })
+      } catch (raw) {
+        throw mapFSError(raw, dir)
+      }
+      stamps[dir] = st?.mtimeMs
+    }
+    return { path: root, stamps }
   }
 
   /** Validate the root before any listing (D6 §4.6). */

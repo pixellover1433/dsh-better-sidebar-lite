@@ -33,6 +33,32 @@ export interface ExplorerListResult {
 }
 
 /**
+ * Auto-refresh stamp models (ADR-004 §3 amendment, explorer). The client polls
+ * change stamps for its currently loaded directories instead of re-listing them
+ * blindly: a poll is a handful of stat calls, and a full listing is issued only
+ * for a directory whose stamp actually moved.
+ */
+export interface ExplorerStampRequest {
+  /** Absolute root path; validated exactly like explorer/list (identity anchor + trust fence). */
+  path: string
+  /** Absolute directories whose change stamps are needed. The root is conventional first. */
+  dirs: readonly string[]
+}
+
+export interface ExplorerStampResult {
+  /** Echo of the requested root. */
+  path: string
+  /**
+   * Per-directory change stamp = the directory's mtimeMs. A directory's mtime
+   * moves exactly when a direct child is added/removed/renamed — the only
+   * changes a tree can show (content edits move no name). `undefined` marks a
+   * directory that no longer exists (or sits outside the root): the client
+   * refreshes it and the existing not-found/prune path takes over.
+   */
+  stamps: Readonly<Record<string, number | undefined>>
+}
+
+/**
  * Deterministic listing order: directories first, then locale-aware name
  * comparison, then full path as a stable tie-break. Pure and shared so host
  * and client tests pin the same order.

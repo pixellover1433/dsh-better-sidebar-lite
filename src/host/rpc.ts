@@ -11,6 +11,7 @@ import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import {
   Endpoints,
   isExplorerListRequest,
+  isExplorerStampRequest,
   isGitCommitDetailRequest,
   isGitCommitRequest,
   isGitDiscardRequest,
@@ -67,6 +68,15 @@ async function dispatch(
       if (!isExplorerListRequest(payload)) return badRequest('invalid payload for ' + endpoint)
       try {
         const value = await services.explorer.list(payload)
+        return toRpcResult({ ok: true, value })
+      } catch (e) {
+        return toRpcResult({ ok: false, error: e as SidebarError })
+      }
+    }
+    case Endpoints.explorerStamp: {
+      if (!isExplorerStampRequest(payload)) return badRequest('invalid payload for ' + endpoint)
+      try {
+        const value = await services.explorer.stamp(payload)
         return toRpcResult({ ok: true, value })
       } catch (e) {
         return toRpcResult({ ok: false, error: e as SidebarError })

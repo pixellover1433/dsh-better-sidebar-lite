@@ -6,7 +6,7 @@
  * synchronous; the stale-response guards (per-path request seq + per-tab root
  * generation) discard superseded async results.
  */
-import type { ExplorerEntry, ExplorerListResult } from '../../../contract/explorer.ts'
+import type { ExplorerEntry, ExplorerListResult, ExplorerStampRequest, ExplorerStampResult } from '../../../contract/explorer.ts'
 import type { SidebarError, SidebarResult } from '../../../contract/errors.ts'
 
 /** Injected directory listing transport (the panel wires it to the RPC facade). */
@@ -14,6 +14,12 @@ export type DirectoryLoader = (
   path: string,
   signal: AbortSignal,
 ) => Promise<SidebarResult<ExplorerListResult>>
+
+/** Injected change-stamp transport used by the auto-refresh poll (ADR-004 §3 amendment). */
+export type StampLoader = (
+  request: ExplorerStampRequest,
+  signal: AbortSignal,
+) => Promise<SidebarResult<ExplorerStampResult>>
 
 export type LoadState = 'idle' | 'loading' | 'error' | 'loaded'
 
@@ -78,6 +84,12 @@ export class ExplorerStore {
   private readonly seqs = new Map<string, number>()
   /** Per-path AbortController to cancel superseded listings at the transport. */
   private readonly controllers = new Map<string, AbortController>()
+  /** Last per-dir change stamp (undefined = the dir vanished); seeded per root. */
+  private readonly seenStamps = new Map<string, number | undefined>()
+  /** True once the first stamp sweep of the current root recorded a baseline. */
+  private stampsSeeded = false
+  /** One stamp poll at a time; overlapping interval ticks collapse. */
+  private stampPolling = false
   private readonly listeners = new Set<() => void>()
 
   constructor(private readonly loader: DirectoryLoader) {
@@ -109,6 +121,10 @@ export class ExplorerStore {
    */
   setRoot(path: string | undefined): void {
     this.abortAll()
+    // A new tree has a new stamp baseline: the first poll of the new root
+    // refreshes once instead of diffing against stamps from the old root.
+    this.seenStamps.clear()
+    this.stampsSeeded = false
     const rootGen = this.state.rootGen + 1
     if (path === undefined) {
       this.state = {
@@ -188,6 +204,62 @@ export class ExplorerStore {
     await Promise.all(jobs)
   }
 
+  /**
+   * Silent in-place refresh of the given loaded directories (ADR-004 §3
+   * amendment, explorer): re-lists them without flipping the surface back to
+   * 'loading', so an auto-refresh never blanks the tree. Expansion, selection,
+   * and focus are preserved by the same diff-in-place mechanics as refresh().
+   * Paths without a node are skipped.
+   */
+  async refreshDirs(paths: readonly string[]): Promise<void> {
+    const root = this.state.root
+    if (root === undefined) return
+    const jobs: Promise<void>[] = []
+    for (const p of new Set(paths)) {
+      if (this.state.nodes[p] === undefined) continue
+      jobs.push(this.loadList(p, p === root, true))
+    }
+    await Promise.all(jobs)
+  }
+
+  /**
+   * Stamp sweep (ADR-004 §3 amendment, explorer): ask the host for each loaded
+   * directory's change stamp and re-list ONLY the directories whose stamp moved
+   * since the last sweep. The first sweep of a root refreshes every loaded
+   * directory once (it also closes the window of changes made between the
+   * initial load and the first sweep); later sweeps are pure diffs. A vanished
+   * directory stamps undefined and drives the existing not-found prune; a
+   * vanished root makes the whole request fail with not-found, which routes
+   * through loadRoot so the root-error surface appears.
+   */
+  async pollStamps(stampLoader: StampLoader): Promise<void> {
+    const root = this.state.root
+    if (root === undefined || this.stampPolling) return
+    const loaded = Object.values(this.state.nodes)
+      .filter(n => n.children !== undefined && n.entry.kind === 'directory')
+      .map(n => n.entry.path)
+    const dirs = [...new Set([root, ...loaded])]
+    this.stampPolling = true
+    try {
+      const result = await stampLoader({ path: root, dirs }, new AbortController().signal)
+      if (!result.ok) {
+        // The root vanished: route through the normal root-load path so the
+        // tree surfaces the root-error state (ADR-004 path-deleted).
+        if (result.error.code === 'not-found') await this.loadRoot()
+        return
+      }
+      const { stamps } = result.value
+      const changed = this.stampsSeeded
+        ? dirs.filter(dir => this.seenStamps.get(dir) !== stamps[dir])
+        : dirs
+      for (const dir of dirs) this.seenStamps.set(dir, stamps[dir])
+      this.stampsSeeded = true
+      if (changed.length > 0) await this.refreshDirs(changed)
+    } finally {
+      this.stampPolling = false
+    }
+  }
+
   /** Select a path (single-select); passes through undefined to clear. */
   select(path: string | undefined): void {
     if (path === this.state.selectedPath) return
@@ -249,7 +321,7 @@ export class ExplorerStore {
 
   // ---- internals ----
 
-  private async loadList(path: string, isRoot: boolean): Promise<void> {
+  private async loadList(path: string, isRoot: boolean, silent?: boolean): Promise<void> {
     const gen = this.state.rootGen
     const seq = this.seqFor(path)
     this.controllers.get(path)?.abort()
@@ -257,7 +329,10 @@ export class ExplorerStore {
     this.controllers.set(path, controller)
 
     this.applyNode(path, n => ({ ...clearError(n), loadState: 'loading' }))
-    if (isRoot) {
+    // Silent (auto-refresh) listings never flip the surface: the tree stays on
+    // screen with the last-good children; only the re-listed rows show a
+    // loading state.
+    if (isRoot && silent !== true) {
       this.state = { ...this.state, surface: { phase: 'loading' } }
       this.emit()
     }
@@ -283,8 +358,14 @@ export class ExplorerStore {
     const next: NodeState = result.ok
       ? { ...clearError(node), loadState: 'loaded', children: result.value.entries }
       : { ...node, loadState: 'error', loadError: result.error }
+    // A silent (auto-refresh) root listing never blanks the surface to
+    // 'loading', but a success still recovers a root-error surface (e.g. the
+    // workspace dir was deleted and then recreated); a failure keeps whatever
+    // the surface already showed (last-good tree stays on screen).
     const surface: ExplorerSurface = isRoot
-      ? (result.ok ? { phase: 'loaded' } : { phase: 'root-error', error: result.error })
+      ? (result.ok
+        ? { phase: 'loaded' }
+        : silent === true ? this.state.surface : { phase: 'root-error', error: result.error })
       : this.state.surface
     this.state = {
       ...this.state,

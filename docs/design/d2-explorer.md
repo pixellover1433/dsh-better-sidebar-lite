@@ -11,6 +11,7 @@
 - **Lazy-loading protocol** (one RPC per expanded directory).
 - **Expansion/selection state** ownership and persistence.
 - **Refresh semantics** + stale-response guard.
+- **Auto-refresh** (amendment): session dirty-signal + a change-stamp fallback poll (§5.1 item 4).
 - **Keyboard/a11y** contract.
 - **Open-file event** (a typed, subscribe-able bus event — *no editor today*).
 - Error / empty / loading surfaces (permission-denied, path-deleted, not-found).
@@ -262,12 +263,16 @@ export interface ExplorerPathGuard {
 
 ### 5.1 Triggers
 
-**Decision: three refresh sources, each with a distinct scope:**
-1. **Manual refresh** (header button): re-lists the root **and every currently-expanded directory** in place (diff children; see §5.2). Collapsed dirs are not refetched (re-expanding lists fresh anyway).
+**Decision: four refresh sources, each with a distinct scope:**
+1. **Manual refresh** (header button): re-lists the root **and every currently-loaded directory** in place (diff children; see §5.2). Collapsed dirs are not refetched (re-expanding lists fresh anyway).
 2. **Auto-refresh on root change**: when the resolved root path *changes value* (§7), the tree **fully resets** (§5.2) and lists the new root.
 3. **Auto-refresh on workspace/session metadata change**: when the active session `cwd` or current workspace `path` *changes value*, the tree resets to the (new) root and lists. We do **not** refetch every expanded dir here — a changed root is a different tree.
+4. **HYBRID AUTO-REFRESH (amendment, ADR-004 §3 — mirrors the git tab)**, both active only while the explorer tab is mounted (active tab + open dock) and the document is visible:
+   - **Session dirty-signal**: the active session's `updatedAt` bumps whenever the agent lands a message/tool frame (e.g. a write/edit tool changed the workspace), so that bump schedules a debounced (~600ms) **silent** refresh of every loaded directory — the tree shows agent writes within a beat, without blanking.
+   - **Fallback stamp poll** (8s): the client asks the host for each loaded directory's **change stamp** (`explorer/stamp` = one stat per dir; a directory's mtime moves exactly when a direct child is added/removed/renamed — the only changes a tree can show), and re-lists **only** the directories whose stamp moved since the last sweep. This catches changes that never touch the session store (IDE, terminal, other processes) at near-zero idle cost, and a vanished directory (stamp `undefined`) drives the existing not-found prune. The first sweep of a root refreshes every loaded dir once, closing the window between initial load and the first sweep.
+   - Neither refresh source sets the surface loading state (§5.4): last-good children stay on screen; only the re-listed rows show a loading state.
 
-**No filesystem watcher** in today's scope (lite). External edits surface only via manual refresh; documented as a known limitation (README/D8).
+**Stamp granularity note:** a directory stamp is its `mtimeMs`, so two distinct changes to the same directory within the same filesystem timestamp bucket (e.g. the 1-second granularity of some Linux filesystems) are only distinguished by the *next* change; the manual refresh button remains the backstop. This is a known limitation (README), not a correctness hole — the sweep self-heals on the next change.
 
 ### 5.2 Reset vs diff
 
@@ -468,6 +473,12 @@ tests/client/explorer/explorer-panel.client.spec.tsx  // component surface state
 - Selection on a node pruned by refresh → selection clears to `undefined`; focus moves to the parent (§9).
 - Path with a trailing separator or mixed case on Windows → host normalizes (realpath canon) before identity; the client never normalizes.
 - Concurrent list for two different dirs → both allowed; per-node seq keeps them isolated.
+- A child added/removed under an expanded dir → the stamp poll (or the session dirty-signal) refresh turns it visible within the cadence; unchanged dirs are never re-listed by the poll.
+- A loaded directory deleted on disk → its stamp becomes `undefined` → the sweep re-lists it → not-found prune (existing path-deleted handling).
+- The workspace root deleted while watching → the whole stamp request fails not-found → the sweep routes through `loadRoot` → root-error surface.
+- Two changes to the same dir inside one filesystem timestamp bucket (1s granularity on some Linux mounts) → the sweep may not distinguish them until the next change; manual refresh is the backstop (README known limitation).
+- Overlapping interval ticks → one stamp poll at a time: a tick that lands while a sweep is in flight is dropped (per-store guard).
+- Root change while polling → `setRoot` clears the stamp baseline so the first sweep of the new root refreshes instead of diffing stale stamps.
 
 ---
 

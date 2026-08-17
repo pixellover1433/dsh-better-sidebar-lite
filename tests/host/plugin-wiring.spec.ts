@@ -71,6 +71,62 @@ describe('host plugin wiring', () => {
     }
   });
 
+  it('serves explorer/stamp in the RPC value slot', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.explorerStamp, { path: dir, dirs: [dir] }, new AbortController().signal);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const envelope = result.value as { ok: boolean; value?: { path: string; stamps: Record<string, unknown> } };
+      expect(envelope.ok).toBe(true);
+      expect(envelope.value?.path).toBe(dir);
+      expect(typeof envelope.value?.stamps[dir]).toBe('number');
+    }
+  });
+
+  it('rejects explorer/stamp with an empty dirs list as bad-request', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.explorerStamp, { path: dir, dirs: [] }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
+
+  it('rides a not-found root for explorer/stamp in the value slot', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const missing = join(dir, 'missing');
+    const result = await handler(Endpoints.explorerStamp, { path: missing, dirs: [missing] }, new AbortController().signal);
+    expect(result.ok).toBe(true); // transport success; the value slot carries the failure
+    if (result.ok && typeof result.value === 'object' && result.value !== null && 'error' in result.value) {
+      expect((result.value as { error: { code: string } }).error.code).toBe('not-found');
+    } else {
+      throw new Error('expected a SidebarResult failure');
+    }
+  });
+
+  it('stamps a dir outside the root undefined', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'bslite-wire-out-'));
+    try {
+      apply(ctx, {});
+      await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+      const handler = connection.captured.handler!;
+      const result = await handler(Endpoints.explorerStamp, { path: dir, dirs: [dir, outside] }, new AbortController().signal);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const envelope = result.value as { ok: boolean; value?: { stamps: Record<string, unknown> } };
+        expect(envelope.ok).toBe(true);
+        expect(envelope.value?.stamps[dir]).toBeTypeOf('number');
+        expect(envelope.value?.stamps[outside]).toBeUndefined();
+      }
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
   it('rides a domain error for a bad explorer root in the value slot', async () => {
     apply(ctx, {});
     await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());

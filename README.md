@@ -22,7 +22,7 @@ dsh plugin add dsh-better-sidebar-lite --profile web
 
 Two halves of one cordis plugin:
 
-- **Host half** (Node): registers the generic Connection RPC channel `/better-sidebar` with `authority: loopback` and serves eight endpoints: `explorer/list`, `git/status`, `git/log`, `git/stage`, `git/unstage`, `git/commit-detail` (full message + changed files of one commit), `git/commit` (stage + commit), and `git/discard` (restore/clean). Filesystem access uses `node:fs/promises`; git runs via a spawn wrapper with fixed arguments, optional stdin for commit messages, timeout and abort support — no shell interpolation.
+- **Host half** (Node): registers the generic Connection RPC channel `/better-sidebar` with `authority: loopback` and serves nine endpoints: `explorer/list`, `explorer/stamp` (auto-refresh change stamps), `git/status`, `git/log`, `git/stage`, `git/unstage`, `git/commit-detail` (full message + changed files of one commit), `git/commit` (stage + commit), and `git/discard` (restore/clean). Filesystem access uses `node:fs/promises`; git runs via a spawn wrapper with fixed arguments, optional stdin for commit messages, timeout and abort support — no shell interpolation.
 - **Client half** (browser): registers one entry into the layout's right `details` column (declared by ui-layout AppFrame; priority -1 shadows ui-conversation's DetailsPanel) that renders the sidebar with a tab bar. Because the dock is a real grid column, the conversation shrinks beside it — it never overlaps the main UI. The dock tab set comes from `ctx.betterSidebar.tabs`, a registry any plugin can contribute to.
 
 Data flow (one round trip):
@@ -149,7 +149,7 @@ The test suite needs a real `git` on PATH (git-service tests script a real repo 
 
 ## Known limitations (v1)
 
-- Explorer has no hidden-file reveal toggle, no multi-select, no virtualization.
+- Explorer auto-refreshes via the session dirty-signal and an 8s change-stamp poll (`explorer/stamp`, ADR-004), so agent-written and external tree changes appear without manual refresh. On filesystems with coarse (1s) timestamp granularity, two rapid changes to the same directory may be merged until the next change; the manual refresh button remains the backstop. The explorer has no hidden-file reveal toggle, no multi-select, no virtualization.
 - Git supports the full working-tree loop: stage/unstage, commit (staged or "include all"), and discard (per-file or all untracked+unstaged) — but no diff CONTENT preview and no stash; no merge badge (contract lacks a parents field). Commit/discard are destructive and gated by the UI's confirm dialog; discard restores tracked files from HEAD and cleans untracked ones.
 - The dock owns the frame's right `details` column, so dsh's built-in tool-details viewer (click a tool call to inspect its input/output) is replaced by the sidebar. The details track only opens for a current NON-blank session on a wide-enough viewport (AppFrame gates both) — when it is closed the dock floats at the right edge instead of vanishing, and docks back in-flow once the column opens. Collapse shrinks it to a 56px tab rail (click a tab or the expand chevron to restore; Ctrl/Cmd+Shift+B toggles); without any current session the dock does not mount (dsh's native details behavior).
 - Open-file events are emitted but no editor consumes them yet.

@@ -498,9 +498,10 @@ describe('GitTab', () => {
       expect(statusCount(rpc)).toBe(1)
 
       // A tool result lands: the session summary bumps its activity stamp.
+      const summaries = SESSIONS.byId as unknown as Record<string, { updatedAt: number }>
       sessionsRef.value = {
         ...SESSIONS,
-        byId: { s1: { ...SESSIONS.byId.s1, updatedAt: 1 } },
+        byId: { s1: { ...summaries.s1, updatedAt: 1 } },
       } as unknown as SessionListState
       rerender(
         <DockContext.Provider value={value}>

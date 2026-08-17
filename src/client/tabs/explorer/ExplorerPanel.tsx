@@ -1,15 +1,30 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useDock } from '../../dock/context.ts'
 import { RefreshIcon } from '../../icons.tsx'
 import { resolveRoot } from '../../workspace-root.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
-import type { ExplorerEntry } from '../../../contract/explorer.ts'
+import type { ExplorerEntry, ExplorerStampRequest } from '../../../contract/explorer.ts'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { ExplorerOpenFileEmitter, ExplorerOpenFileEvent } from './events.ts'
 import { basename, ExplorerStore, type ExplorerState } from './state.ts'
 import { TreeNodeRow } from './TreeNodeRow.tsx'
 import type { ExplorerKey } from './locales.ts'
 import styles from './ExplorerPanel.module.css'
+
+/**
+ * Fallback poll cadence (ADR-004 §3 amendment, explorer): catches tree-visible
+ * changes that never touch the session store (IDE, terminal, other processes).
+ * The sweep itself is cheap — a handful of directory stats via explorer/stamp —
+ * and only changed directories are re-listed.
+ */
+export const AUTO_REFRESH_EXPLORER_INTERVAL_MS = 8_000
+
+/**
+ * Debounce for session-activity-triggered auto-refresh. Session frames (and
+ * their updatedAt bumps) arrive in bursts around one tool run, so coalesce
+ * them into a single refresh — mirrors the git tab's debounce.
+ */
+export const AUTO_REFRESH_EXPLORER_DEBOUNCE_MS = 600
 
 export interface ExplorerPanelProps {
   /** Typed RPC facade (explicit prop; the dock shell wires it into the tab factory). */
@@ -68,11 +83,86 @@ export function ExplorerPanel({ rpc, emitter, t }: ExplorerPanelProps) {
 
   const root = useMemo(() => resolveRoot(sessions, workspaces), [sessions, workspaces])
 
-  // Root change => full reset + list (ADR-004 root-resolution precedence).
+  // ---- Auto-refresh (ADR-004 §3 amendment, explorer) ----
+
+  /** Change-stamp transport bound to the rpc facade (stable per rpc). */
+  const stampLoader = useCallback(
+    (request: ExplorerStampRequest, signal: AbortSignal) =>
+      rpc.call(Endpoints.explorerStamp, request, { signal }),
+    [rpc],
+  )
+
+  // Last observed activity stamp of the active session (dirty-signal). First
+  // observation seeds only; later bumps schedule a debounced refresh.
+  const lastActivityRef = useRef<{ sessionId: string | undefined; updatedAt: number }>({ sessionId: undefined, updatedAt: 0 })
+  const activitySeededRef = useRef(false)
+  const autoRefreshTimerRef = useRef<number | null>(null)
+
+  /** Debounced auto-refresh: session frames arrive in bursts, coalesce them. */
+  const scheduleAutoRefresh = useCallback(() => {
+    if (autoRefreshTimerRef.current !== null) window.clearTimeout(autoRefreshTimerRef.current)
+    autoRefreshTimerRef.current = window.setTimeout(() => {
+      autoRefreshTimerRef.current = null
+      // Session frames landed (e.g. a write/edit tool): refresh every loaded
+      // directory silently so anything the agent touched shows up quickly.
+      const loaded = Object.values(store.snapshot().nodes)
+        .filter(n => n.children !== undefined && n.entry.kind === 'directory')
+        .map(n => n.entry.path)
+      void store.refreshDirs(loaded)
+    }, AUTO_REFRESH_EXPLORER_DEBOUNCE_MS)
+  }, [store])
+
+  // Root change => full reset + list (ADR-004 root-resolution precedence). A
+  // pending auto-refresh timer holds a stale-root closure, so drop it and
+  // re-seed the activity stamp — the root change itself already refreshes.
   useEffect(() => {
     store.setRoot(root)
     void store.loadRoot()
+    if (autoRefreshTimerRef.current !== null) {
+      window.clearTimeout(autoRefreshTimerRef.current)
+      autoRefreshTimerRef.current = null
+    }
+    lastActivityRef.current = { sessionId: undefined, updatedAt: 0 }
+    activitySeededRef.current = false
   }, [store, root])
+
+  // Session dirty-signal: the active session's updatedAt bumps whenever the
+  // agent lands a message/tool frame (e.g. a write/edit tool that changed the
+  // workspace), so that bump is a strong hint to auto-refresh. Runs after
+  // every render; the comparison is cheap. Mirrors the git tab.
+  useEffect(() => {
+    const current = sessions.current
+    const summary = current === undefined ? undefined : sessions.byId[current]
+    const stamp = { sessionId: current, updatedAt: summary?.updatedAt ?? 0 }
+    const prev = lastActivityRef.current
+    lastActivityRef.current = stamp
+    if (!activitySeededRef.current) {
+      activitySeededRef.current = true
+      return
+    }
+    if (stamp.sessionId === prev.sessionId && stamp.updatedAt === prev.updatedAt) return
+    if (root === undefined || document.hidden) return
+    scheduleAutoRefresh()
+  })
+
+  // Fallback poll: catches changes that never touch the session store (IDE,
+  // terminal, other processes). Runs only while this tab is mounted — the
+  // panel unmounts when the tab is inactive or the dock collapses — and skips
+  // hidden documents. The sweep is a cheap stamp diff; only moved directories
+  // are re-listed.
+  useEffect(() => {
+    if (root === undefined) return
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      void store.pollStamps(stampLoader)
+    }, AUTO_REFRESH_EXPLORER_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [root, store, stampLoader])
+
+  // Abort the pending debounce on unmount.
+  useEffect(() => () => {
+    if (autoRefreshTimerRef.current !== null) window.clearTimeout(autoRefreshTimerRef.current)
+  }, [])
 
   // Move real DOM focus to the focused row (roving tabindex).
   const rowEls = useRef(new Map<string, HTMLDivElement>())

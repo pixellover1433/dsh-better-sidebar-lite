@@ -16,6 +16,8 @@ interface FakeEntry {
   kind: 'dir' | 'file' | 'link'
   target?: string
   children?: Map<string, FakeEntry>
+  /** Directory change stamp returned by stat (mtimeMs). */
+  mtimeMs?: number
 }
 
 /** A Dirent-shaped object the fake returns from readdir. */
@@ -32,10 +34,11 @@ function fakeDirent(name: string, kind: 'dir' | 'file' | 'link'): Dirent {
   } as Dirent
 }
 
-function fakeStats(kind: 'dir' | 'file'): Stats {
+function fakeStats(kind: 'dir' | 'file', mtimeMs: number): Stats {
   return {
     isDirectory: () => kind === 'dir',
     isFile: () => kind === 'file',
+    mtimeMs,
   } as Stats
 }
 
@@ -61,6 +64,13 @@ class FakeFs implements FsPort {
   throwOnStat(p: string, err: Error): void { this.statThrows.set(p, err) }
   throwOnReaddir(p: string, err: Error): void { this.readdirThrows.set(p, err) }
 
+  /** Override the change stamp (mtimeMs) a stat of `p` reports. */
+  setMtime(p: string, ms: number): void {
+    const entry = this.tree.get(p)
+    if (entry === undefined) throw new Error('setMtime: unknown path ' + p)
+    entry.mtimeMs = ms
+  }
+
   isAbsolute(p: string): boolean {
     return p.startsWith('/') || /^[A-Za-z]:[\\/]/.test(p)
   }
@@ -85,7 +95,7 @@ class FakeFs implements FsPort {
       if (opts?.throwIfNoEntry === false) return undefined
       throw errFor('ENOENT', 'stat')
     }
-    return fakeStats(entry.kind === 'dir' ? 'dir' : 'file')
+    return fakeStats(entry.kind === 'dir' ? 'dir' : 'file', entry.mtimeMs ?? 0)
   }
 
   async readdir(p: string, _opts: { withFileTypes: true }): Promise<Dirent[]> {
@@ -241,6 +251,114 @@ describe('ExplorerService.list', () => {
     fs.seed({})
     fs.throwOnReaddir('/root', errFor('EACCES', 'readdir'))
     await expect(makeService(fs).list({ path: '/root' })).rejects.toMatchObject({ code: 'permission-denied' })
+  })
+})
+
+describe('ExplorerService.stamp (auto-refresh sweep)', () => {
+  it('returns a stamp per requested dir, echoing the root', async () => {
+    const fs = new FakeFs()
+    fs.seed({ child: dir({}), leaf: file() })
+    fs.setMtime('/root', 100)
+    fs.setMtime('/root/child', 200)
+    const res = await makeService(fs).stamp({ path: '/root', dirs: ['/root', '/root/child'] })
+    expect(res.path).toBe('/root')
+    expect(res.stamps).toEqual({ '/root': 100, '/root/child': 200 })
+  })
+
+  it('stamps a vanished dir undefined without failing the sweep', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    fs.setMtime('/root', 100)
+    const res = await makeService(fs).stamp({ path: '/root', dirs: ['/root', '/root/gone'] })
+    expect(res.stamps['/root']).toBe(100)
+    expect(res.stamps['/root/gone']).toBeUndefined()
+  })
+
+  it('stamps undefined for a dir outside the root (no stat reach outside the fence)', async () => {
+    const fs = new FakeFs()
+    fs.seed({}, '/root')
+    fs.seed({}, '/elsewhere')
+    fs.setMtime('/root', 5)
+    fs.setMtime('/elsewhere', 9)
+    const res = await makeService(fs).stamp({ path: '/root', dirs: ['/root', '/elsewhere'] })
+    expect(res.stamps).toEqual({ '/root': 5, '/elsewhere': undefined })
+  })
+
+  it('stamps undefined for a relative dir', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    fs.setMtime('/root', 7)
+    const res = await makeService(fs).stamp({ path: '/root', dirs: ['/root', 'relative/dir'] })
+    expect(res.stamps).toEqual({ '/root': 7, 'relative/dir': undefined })
+  })
+
+  it('dedupes repeated dirs in one request', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    fs.setMtime('/root', 7)
+    const res = await makeService(fs).stamp({ path: '/root', dirs: ['/root', '/root', '/root'] })
+    expect(res.stamps).toEqual({ '/root': 7 })
+  })
+
+  it('validates the root like a list: a missing root fails the whole sweep', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    await expect(makeService(fs).stamp({ path: '/nope', dirs: ['/nope'] })).rejects.toMatchObject({ code: 'not-found' })
+  })
+
+  it('rejects a non-directory root', async () => {
+    const fs = new FakeFs()
+    fs.seed({ f: file() })
+    await expect(makeService(fs).stamp({ path: '/root/f', dirs: ['/root/f'] })).rejects.toMatchObject({ code: 'not-directory' })
+  })
+
+  it('honours allowedRoots for the sweep root', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    const service = new ExplorerService(fs, { maxEntries: 2000, hidePatterns: [], allowedRoots: ['/allowed'] })
+    await expect(service.stamp({ path: '/root', dirs: ['/root'] })).rejects.toMatchObject({ code: 'outside-allowed-root' })
+  })
+
+  it('surfaces a stat failure of a polled dir through the sweep', async () => {
+    const fs = new FakeFs()
+    fs.seed({ child: dir({}) })
+    fs.throwOnStat('/root/child', errFor('EACCES', 'stat'))
+    await expect(makeService(fs).stamp({ path: '/root', dirs: ['/root', '/root/child'] })).rejects.toMatchObject({ code: 'permission-denied' })
+  })
+})
+
+describe('ExplorerService.stamp on the real fs', () => {
+  let root: string
+
+  beforeEach(async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'bslite-stamp-'))
+    await fsp.mkdir(path.join(root, 'sub'))
+  })
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true })
+  })
+
+  it('moves a directory stamp when a child is added', async () => {
+    const service = new ExplorerService(fsNode, { maxEntries: 2000, hidePatterns: [] })
+    const sub = path.join(root, 'sub')
+    const before = await service.stamp({ path: root, dirs: [root, sub] })
+    // Sleep past any 1s timestamp granularity so the added file's parent-dir
+    // mtime is guaranteed to land in a different bucket than the original.
+    await new Promise(resolve => setTimeout(resolve, 1100))
+    await fsp.writeFile(path.join(sub, 'new.txt'), 'x', 'utf8')
+    const after = await service.stamp({ path: root, dirs: [root, sub] })
+    expect(after.stamps[sub]).not.toBe(before.stamps[sub])
+  })
+
+  it('stamps a deleted directory undefined', async () => {
+    const service = new ExplorerService(fsNode, { maxEntries: 2000, hidePatterns: [] })
+    const sub = path.join(root, 'sub')
+    const before = await service.stamp({ path: root, dirs: [sub] })
+    expect(before.stamps[sub]).not.toBeUndefined()
+    await fsp.rm(sub, { recursive: true, force: true })
+    const after = await service.stamp({ path: root, dirs: [sub] })
+    expect(after.stamps[sub]).toBeUndefined()
   })
 })
 
