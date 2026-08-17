@@ -12,6 +12,7 @@ import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { ChevronDownIcon } from '../icons.tsx'
 import type { SidebarCardActions, SidebarCardState } from './controller.ts'
 import type { BetterSidebarPluginsLocaleKey } from './locales.ts'
+import { SETTING_RANGES } from '../../contract/settings.ts'
 import pluginCardCss from './PluginCard.module.css'
 import fieldsCss from './fields.module.css'
 
@@ -36,7 +37,7 @@ export type BetterSidebarSettingsCardProps = SidebarCardActions & {
 
 /** Field => label/hint key pairs, in display order. */
 const FIELD_COPY: ReadonlyArray<{
-  field: string
+  field: keyof typeof SETTING_RANGES
   labelKey: BetterSidebarPluginsLocaleKey
   hintKey: BetterSidebarPluginsLocaleKey
 }> = [
@@ -45,6 +46,15 @@ const FIELD_COPY: ReadonlyArray<{
   { field: 'gitPollMs', labelKey: 'gitPollMs', hintKey: 'gitPollMsHint' },
   { field: 'gitDebounceMs', labelKey: 'gitDebounceMs', hintKey: 'gitDebounceMsHint' },
 ]
+
+/** Build the invalid-value message stating the field's allowed range. */
+function rangeInvalidLabel(
+  t: (key: BetterSidebarPluginsLocaleKey) => string,
+  field: keyof typeof SETTING_RANGES,
+): string {
+  const { min, max } = SETTING_RANGES[field]
+  return t('invalidRange').replace('{min}', String(min)).replace('{max}', String(max))
+}
 
 export function BetterSidebarSettingsCard(props: BetterSidebarSettingsCardProps): ReactNode {
   const { t } = props
@@ -90,7 +100,7 @@ export function BetterSidebarSettingsCard(props: BetterSidebarSettingsCardProps)
                   invalid={f.invalid}
                   overriddenLabel={t('overridden')}
                   resetLabel={t('reset')}
-                  invalidLabel={t('invalidNumber')}
+                  invalidLabel={rangeInvalidLabel(t, field)}
                   disabled={!state.writable}
                   onEdit={(text) => { props.edit(field, text) }}
                   onReset={() => { props.resetField(field) }}

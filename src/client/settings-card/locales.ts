@@ -13,7 +13,7 @@ export const NS = 'betterSidebar.plugins' as const
 export type BetterSidebarPluginsLocaleKey =
   | 'cardTitle' | 'cardDescription'
   | 'overridden' | 'reset' | 'readOnly' | 'expand' | 'collapse'
-  | 'save' | 'saving' | 'discard' | 'unsaved' | 'saveFailed' | 'invalidNumber'
+  | 'save' | 'saving' | 'discard' | 'unsaved' | 'saveFailed' | 'invalidNumber' | 'invalidRange'
   | 'explorerPollMs' | 'explorerPollMsHint'
   | 'explorerDebounceMs' | 'explorerDebounceMsHint'
   | 'gitPollMs' | 'gitPollMsHint'
@@ -41,6 +41,7 @@ export const en: Record<BetterSidebarPluginsLocaleKey, string> = {
   unsaved: 'Unsaved',
   saveFailed: 'The deployment did not accept these values; they were left for you to correct.',
   invalidNumber: 'Enter a number, or leave blank to use the default.',
+  invalidRange: 'Enter a number between {min} and {max}.',
   explorerPollMs: 'Explorer refresh poll (ms)',
   explorerPollMsHint: 'How often the explorer asks the host for changed directories.',
   explorerDebounceMs: 'Explorer refresh debounce (ms)',
@@ -66,6 +67,7 @@ export const zh: Record<BetterSidebarPluginsLocaleKey, string> = {
   unsaved: '未保存',
   saveFailed: '本部署没有接受这些值，已保留供你修改。',
   invalidNumber: '请填数字；留空表示使用默认值。',
+  invalidRange: '请输入介于 {min} 与 {max} 之间的数字。',
   explorerPollMs: '资源管理器刷新轮询（毫秒）',
   explorerPollMsHint: '资源管理器多久向主机询问一次目录变化。',
   explorerDebounceMs: '资源管理器刷新防抖（毫秒）',

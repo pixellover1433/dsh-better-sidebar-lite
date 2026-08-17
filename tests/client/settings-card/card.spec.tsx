@@ -10,6 +10,7 @@ import { describe, expect, it, afterEach } from 'vitest'
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { BetterSidebarSettingsCard, type BetterSidebarSettingsCardProps } from '../../../src/client/settings-card/BetterSidebarSettingsCard.tsx'
 import type { SidebarCardActions, SidebarCardState } from '../../../src/client/settings-card/controller.ts'
+import { SETTING_RANGES } from '../../../src/contract/settings.ts'
 import { en } from '../../../src/client/settings-card/locales.ts'
 
 afterEach(() => { cleanup() })
@@ -87,5 +88,20 @@ describe('BetterSidebarSettingsCard', () => {
     renderCard(baseState({ writable: false }))
     fireEvent.click(screen.getByRole('button', { name: `Show settings: ${en.cardTitle}` }))
     expect(screen.getByText(en.readOnly)).toBeTruthy()
+  })
+
+  it('states the allowed range on a field whose draft is invalid', () => {
+    const { min, max } = SETTING_RANGES.explorerPollMs
+    renderCard(baseState({
+      dirty: true,
+      invalid: true,
+      fields: {
+        ...baseState().fields,
+        explorerPollMs: { text: String(min - 1), overridden: true, invalid: true },
+      },
+    }))
+    fireEvent.click(screen.getByRole('button', { name: `Show settings: ${en.cardTitle}` }))
+    const expected = en.invalidRange.replace('{min}', String(min)).replace('{max}', String(max))
+    expect(screen.getByText(expected)).toBeTruthy()
   })
 })
