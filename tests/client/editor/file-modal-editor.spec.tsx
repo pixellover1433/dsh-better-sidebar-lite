@@ -171,12 +171,15 @@ describe('FileModalEditor', () => {
     expect(await screen.findByText('FRESH')).toBeTruthy()
   })
 
-  it('calls gitDiff and renders the diff when the open event carries diff', async () => {
+  it('calls gitDiff and renders a two-pane diff when the open event carries diff', async () => {
     const rpc = new FakeRpc()
     const emitter = new ExplorerOpenFileEmitter()
     rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
       ok: true,
-      value: { diff: 'diff --git a/a.txt b/a.txt\n+added\n', empty: false },
+      value: {
+        diff: 'diff --git a/a.txt b/a.txt\n@@ -1,2 +1,2 @@\n alpha\n-gone\n+added\n omega\n',
+        empty: false,
+      },
     }))
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
@@ -185,11 +188,102 @@ describe('FileModalEditor', () => {
     }
     act(() => emitter.emit(event))
     expect(screen.getByRole('status')).toBeTruthy()
-    expect(await screen.findByText(/diff --git a\/a.txt/)).toBeTruthy()
+    // The added line is unique (appears only on the right pane).
+    expect(await screen.findByText('added')).toBeTruthy()
+    // Context appears on both panes (twice); no raw single-pane <pre> is used.
+    expect(screen.getAllByText('alpha')).toHaveLength(2)
+    expect(screen.queryByText(/diff --git a\/a.txt/)).toBeNull()
     const call = rpc.calls.find(c => c.endpoint === Endpoints.gitDiff)
     expect(call?.payload).toEqual({ path: '/workspace/repo', file: 'a.txt', base: 'head' })
     // A diff-mode open must not also read the raw file.
     expect(rpc.calls.some(c => c.endpoint === Endpoints.explorerRead)).toBe(false)
+  })
+
+  it('renders old lines on the left pane and new lines on the right pane', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: true,
+      value: {
+        diff: 'diff --git a/a.txt b/a.txt\n@@ -1,3 +1,3 @@\n keep\n-old\n+new\n',
+        empty: false,
+      },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    const oldEl = await screen.findByText('old')
+    const newEl = screen.getByText('new')
+    // The deleted line 'old' belongs to the LEFT (old) pane and the added line
+    // 'new' to the RIGHT (new) pane, so 'old' precedes 'new' in DOM order.
+    expect(oldEl.compareDocumentPosition(newEl) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Added/deleted lines appear exactly once each (not duplicated across panes).
+    expect(screen.getAllByText('old')).toHaveLength(1)
+    expect(screen.getAllByText('new')).toHaveLength(1)
+    // Context appears on both panes.
+    expect(screen.getAllByText('keep')).toHaveLength(2)
+  })
+
+  it('shows a no-changes notice for an empty diff', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: true,
+      value: { diff: '', empty: true },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    expect(await screen.findByText(/no changes/)).toBeTruthy()
+    expect(screen.queryByRole('dialog')).toBeTruthy()
+  })
+
+  it('falls back to the raw text in a single pane for an unparseable diff', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    const raw = 'diff --git a/a.txt b/a.txt\n+++ b/a.txt\nno hunk here'
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: true,
+      value: { diff: raw, empty: false },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    // No crash; the raw patch text is rendered verbatim as fallback content.
+    expect(await screen.findByText(/no hunk here/)).toBeTruthy()
+    expect(screen.getByRole('dialog')).toBeTruthy()
+  })
+
+  it('renders multiple hunks sequentially', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: true,
+      value: {
+        diff: '@@ -1,1 +1,1 @@\n-a\n+A\n@@ -10,1 +11,1 @@\n-b\n+B\n',
+        empty: false,
+      },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { base: 'head', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    expect(await screen.findByText('A')).toBeTruthy()
+    expect(screen.getByText('B')).toBeTruthy()
+    // Both hunk headers are rendered.
+    expect(screen.getByText('@@ -1 +1 @@')).toBeTruthy()
+    expect(screen.getByText('@@ -10 +11 @@')).toBeTruthy()
   })
 
   it('calls explorerRead and renders content when the open carries no diff', async () => {

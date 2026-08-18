@@ -104,3 +104,86 @@
   color: var(--bsd-muted);
   font-size: 12px;
 }
+
+/* Two-pane (old/new) side-by-side diff view (ADR-004). Rendered for git-tracked
+   opens; replaces the single unified <pre>. Each hunk is a header separator plus
+   a stack of aligned rows, and each row is a 2-column grid (old | new) split by a
+   vertical divider. */
+.diff {
+  padding: 4px 0 12px;
+}
+
+.diffHunk {
+  margin: 4px 0;
+}
+
+.diffHunkHeader {
+  padding: 3px 12px;
+  border-top: 1px solid var(--bsd-border);
+  border-bottom: 1px solid var(--bsd-border);
+  background: var(--bsd-bg-raised);
+  color: var(--bsd-muted);
+  font-family: var(--bsd-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diffRows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* One aligned band: old cell on the left, new cell on the right, split by the
+   left cell's right border (the pane divider). */
+.diffRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-width: 0;
+}
+
+.diffCell {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 0 8px;
+  font-family: var(--bsd-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bsd-fg);
+  white-space: pre;
+}
+
+/* The vertical divider + matching the git delete/add highlighting. The empty
+   counterpart cell carries the tone too, so a changed line reads as a full
+   band across the row (GitHub/IDE style). */
+.diffCell + .diffCell {
+  border-left: 1px solid var(--bsd-border);
+}
+.cellDelete {
+  background: rgba(248, 81, 73, 0.14);
+}
+.cellAdd {
+  background: rgba(46, 160, 67, 0.15);
+}
+
+.diffLineNum {
+  flex: none;
+  width: 40px;
+  padding-right: 12px;
+  text-align: right;
+  color: var(--bsd-muted);
+  user-select: none;
+  border-right: 1px solid var(--bsd-border);
+  margin-right: 8px;
+  opacity: 0.8;
+}
+
+.diffLineText {
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-width: 0;
+}

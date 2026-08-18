@@ -16,6 +16,7 @@ import { Endpoints } from '../../contract/rpc.ts'
 import type { BetterSidebarRpc } from '../rpc-client.ts'
 import type { ExplorerEvents, ExplorerOpenFileEvent } from '../tabs/explorer/events.ts'
 import { CloseIcon } from '../icons.tsx'
+import { parseUnifiedDiff, type DiffHunk } from './diff-parse.ts'
 import styles from './FileModalEditor.module.css'
 
 export interface FileModalEditorProps {
@@ -45,6 +46,66 @@ interface OpenFileState {
   truncated?: boolean
   /** Present when phase === 'error'. */
   errorMessage?: string
+}
+
+/**
+ * Renders the loaded diff payload as a two-pane (old/new) side-by-side view.
+ *
+ * The unified patch is parsed into hunk-aligned rows; each row paints both the
+ * left (old) and right (new) cells so context, additions, and deletions line
+ * up like a real diff view. Degrades gracefully: a `null` parse (malformed
+ * patch) and an empty diff both fall back to safe, non-crashing renderings.
+ */
+function DiffView({ diff, t }: { diff: string; t: FileModalEditorProps['t'] }): JSX.Element {
+  if (diff === '') {
+    // No patch at all (host set `empty`): nothing to compare.
+    return <div className={styles.status}>{t('editor.noChanges')}</div>
+  }
+  const hunks = parseUnifiedDiff(diff)
+  if (hunks === null) {
+    // Unparseable patch — never crash; show the raw text in a single pane.
+    return <pre className={styles.content}>{diff}</pre>
+  }
+  return (
+    <div className={styles.diff}>
+      {hunks.map((hunk, hunkIndex) => (
+        <DiffHunkView key={hunkIndex} hunk={hunk} />
+      ))}
+    </div>
+  )
+}
+
+/** One `@@` hunk: a separator header followed by the aligned two-pane rows. */
+function DiffHunkView({ hunk }: { hunk: DiffHunk }): JSX.Element {
+  return (
+    <section className={styles.diffHunk}>
+      <div className={styles.diffHunkHeader}>
+        @@ -{hunk.oldStart} +{hunk.newStart} @@
+      </div>
+      <div className={styles.diffRows}>
+        {hunk.rows.map((row, rowIndex) => {
+          // Left shows context + deletions; right shows context + additions.
+          const left = row.type === 'add' ? '' : row.text
+          const right = row.type === 'delete' ? '' : row.text
+          // css-modules typing (noUncheckedIndexedAccess) yields string | undefined.
+          const leftClass = row.type === 'delete' ? styles.cellDelete : ''
+          const rightClass = row.type === 'add' ? styles.cellAdd : ''
+          return (
+            <div className={styles.diffRow} key={rowIndex}>
+              <div className={styles.diffCell + ' ' + leftClass}>
+                <span className={styles.diffLineNum}>{row.oldLine ?? ''}</span>
+                <span className={styles.diffLineText}>{left}</span>
+              </div>
+              <div className={styles.diffCell + ' ' + rightClass}>
+                <span className={styles.diffLineNum}>{row.newLine ?? ''}</span>
+                <span className={styles.diffLineText}>{right}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
 }
 
 /**
@@ -150,7 +211,11 @@ export function FileModalEditor({ rpc, events, t }: FileModalEditorProps): JSX.E
           )}
           {file.phase === 'loaded' && (
             <>
-              <pre className={styles.content}>{file.content}</pre>
+              {file.mode === 'diff' ? (
+                <DiffView diff={file.content ?? ''} t={t} />
+              ) : (
+                <pre className={styles.content}>{file.content}</pre>
+              )}
               {file.truncated === true && <div className={styles.truncated}>{t('editor.truncated')}</div>}
             </>
           )}

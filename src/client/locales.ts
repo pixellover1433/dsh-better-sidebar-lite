@@ -27,6 +27,7 @@ export const zh = {
   'editor.loading': '加载文件内容…',
   'editor.close': '关闭',
   'editor.truncated': '（文件较大，内容已截断）',
+  'editor.noChanges': '（无变更）',
 } as const
 
 /** Key domain of the dock namespace. */
@@ -47,4 +48,5 @@ export const en: Record<DockKey, string> = {
   'editor.loading': 'Loading file contents…',
   'editor.close': 'Close',
   'editor.truncated': ' (file is large, contents truncated)',
+  'editor.noChanges': ' (no changes)',
 }
