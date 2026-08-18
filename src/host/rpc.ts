@@ -14,6 +14,7 @@ import {
   isExplorerReadRequest,
   isExplorerStampRequest,
   isGitCommitDetailRequest,
+  isGitCommitFileDiffRequest,
   isGitCommitRequest,
   isGitDiscardRequest,
   isGitDiffRequest,
@@ -129,6 +130,15 @@ async function dispatch(
     case Endpoints.gitDiff: {
       if (!isGitDiffRequest(payload)) return badRequest('invalid payload for ' + endpoint)
       return toRpcResult(await services.git.diff(payload, signal))
+    }
+    case Endpoints.gitCommitFileDiff: {
+      if (!isGitCommitFileDiffRequest(payload)) {
+        // Diagnostic: a trust-boundary rejection is worth knowing what arrived
+        // (the browser and host can drift across builds).
+        console.warn('better-sidebar: rejected git/commit-file-diff payload', JSON.stringify(payload))
+        return badRequest('invalid payload for ' + endpoint)
+      }
+      return toRpcResult(await services.git.commitFileDiff(payload, signal))
     }
     default:
       return badRequest('unknown endpoint ' + endpoint)

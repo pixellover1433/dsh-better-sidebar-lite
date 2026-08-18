@@ -4,7 +4,7 @@
  * dependency-free and usable on both halves.
  */
 import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts'
-import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
+import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitFileDiffRequest, GitCommitFileDiffResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
 
 /** Endpoint names (also the wire method segment after the channel). */
 export const Endpoints = {
@@ -19,6 +19,7 @@ export const Endpoints = {
   gitCommit: 'git/commit',
   gitDiscard: 'git/discard',
   gitDiff: 'git/diff',
+  gitCommitFileDiff: 'git/commit-file-diff',
 } as const
 
 export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints]
@@ -36,6 +37,7 @@ export interface BetterSidebarReqMap {
   'git/commit': GitCommitRequest
   'git/discard': GitDiscardRequest
   'git/diff': GitDiffRequest
+  'git/commit-file-diff': GitCommitFileDiffRequest
 }
 
 /** Success value per endpoint. */
@@ -51,6 +53,7 @@ export interface BetterSidebarResMap {
   'git/commit': GitCommitResult
   'git/discard': null
   'git/diff': GitDiffResult
+  'git/commit-file-diff': GitCommitFileDiffResult
 }
 
 /** Host-side defaults; all are config-overridable (see host config). */
@@ -153,4 +156,9 @@ export function isGitLogRequest(v: unknown): v is GitLogRequest {
 export function isGitDiffRequest(v: unknown): v is GitDiffRequest {
   return isRecord(v) && isPath(v.path) && isSafeFile(v.file)
     && (v.base === 'index' || v.base === 'head')
+}
+
+export function isGitCommitFileDiffRequest(v: unknown): v is GitCommitFileDiffRequest {
+  if (!isRecord(v) || !isPath(v.path) || !isSafeFile(v.file)) return false
+  return typeof v.hash === 'string' && /^[0-9a-f]{4,64}$/i.test(v.hash)
 }

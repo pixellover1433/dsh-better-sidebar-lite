@@ -8,6 +8,8 @@ import {
   type GitCommitFile,
   type GitCommitDetailRequest,
   type GitCommitDetailResult,
+  type GitCommitFileDiffRequest,
+  type GitCommitFileDiffResult,
   type GitCommitRequest,
   type GitCommitResult,
   type GitDiffRequest,
@@ -145,6 +147,22 @@ export class GitService {
         ? ['diff', '--cached', '--', request.file]
         : ['diff', '--', request.file]
       const res = await this.runner.run(args, request.path, signal)
+      if (!res.ok) return { ok: false, error: mapRunnerError(res, request.path) }
+      const diff = res.stdout.toString('utf8')
+      return { ok: true, value: { diff, empty: diff.length === 0 } }
+    })
+  }
+
+  /**
+   * Diff a single file as introduced by an OLD commit (git show <hash> -- <file>).
+   * The diff is computed against the commit's parent(s) straight from the repo
+   * object database, so it reflects history rather than the current working
+   * tree and works even when the file's working-tree copy has since changed or
+   * been deleted. For a root commit this diffs against the empty tree.
+   */
+  commitFileDiff(request: GitCommitFileDiffRequest, signal?: AbortSignal): Promise<SidebarResult<GitCommitFileDiffResult>> {
+    return this.withProbe(request.path, signal, async () => {
+      const res = await this.runner.run(['show', request.hash, '--', request.file], request.path, signal)
       if (!res.ok) return { ok: false, error: mapRunnerError(res, request.path) }
       const diff = res.stdout.toString('utf8')
       return { ok: true, value: { diff, empty: diff.length === 0 } }

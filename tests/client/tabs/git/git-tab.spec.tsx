@@ -181,6 +181,51 @@ describe('GitTab', () => {
     expect(screen.queryByText('src/sidebar.tsx')).toBeNull()
   })
 
+  it('double-clicking a commit file row emits an open event with a kind:commit diff', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    const opened: ExplorerOpenFileEvent[] = []
+    emitter.onOpenFile(e => opened.push(e))
+    const logResult: GitLogResult = {
+      entries: [{
+        hash: 'cccccccccccccccccccccccccccccccccccccccc',
+        shortHash: 'ccccccc',
+        authorName: 'Ada',
+        authorEmail: 'ada@example.test',
+        authoredAtISO: '2024-03-01T10:00:00Z',
+        subject: 'Add the sidebar',
+      }],
+      truncated: false,
+      head: 'main',
+    }
+    rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: emptyStatus }))
+    rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: logResult }))
+    rpc.setHandler(Endpoints.gitCommitDetail, () => Promise.resolve({
+      ok: true,
+      value: {
+        message: 'Add the sidebar',
+        files: [
+          { status: 'A', path: 'src/sidebar.tsx' },
+          { status: 'R', path: 'moved.ts', originalPath: 'old.ts', score: 100 },
+        ],
+      },
+    }))
+    renderGitTab(rpc, emitter)
+    const user = userEvent.setup()
+
+    await screen.findByText('Add the sidebar')
+    await user.click(screen.getByText('Add the sidebar'))
+    await screen.findByText('src/sidebar.tsx')
+
+    // Double-click the renamed file's destination path.
+    await user.dblClick(screen.getByText('moved.ts'))
+    expect(opened).toHaveLength(1)
+    expect(opened[0]).toMatchObject({
+      path: '/workspace/repo/moved.ts', name: 'moved.ts', kind: 'file', source: 'double-click', rootPath: ROOT,
+      diff: { kind: 'commit', root: ROOT, hash: 'cccccccccccccccccccccccccccccccccccccccc', file: 'moved.ts' },
+    })
+  })
+
   it('shows an error banner with retry when the commit-files fetch fails', async () => {
     const rpc = new FakeRpc()
     const logResult: GitLogResult = {
@@ -239,7 +284,7 @@ describe('GitTab', () => {
     expect(opened).toHaveLength(1)
     expect(opened[0]).toMatchObject({
       path: '/workspace/repo/b.txt', name: 'b.txt', kind: 'file', source: 'double-click', rootPath: ROOT,
-      diff: { base: 'index', root: ROOT, file: 'b.txt' },
+      diff: { kind: 'status', base: 'index', root: ROOT, file: 'b.txt' },
     })
   })
 
@@ -257,7 +302,7 @@ describe('GitTab', () => {
     await user.dblClick(screen.getByText('a.txt'))
 
     expect(opened).toHaveLength(1)
-    expect(opened[0]?.diff).toEqual({ base: 'head', root: ROOT, file: 'a.txt' })
+    expect(opened[0]?.diff).toEqual({ kind: 'status', base: 'head', root: ROOT, file: 'a.txt' })
   })
 
   it('opens a nested untracked row with no diff (full-content representation)', async () => {

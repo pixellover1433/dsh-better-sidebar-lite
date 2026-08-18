@@ -28,6 +28,8 @@ export const zh = {
   'editor.close': '关闭',
   'editor.truncated': '（文件较大，内容已截断）',
   'editor.noChanges': '（无变更）',
+  'editor.resize': '调整宽度',
+  'editor.resizeCorner': '调整大小',
 } as const
 
 /** Key domain of the dock namespace. */
@@ -49,4 +51,6 @@ export const en: Record<DockKey, string> = {
   'editor.close': 'Close',
   'editor.truncated': ' (file is large, contents truncated)',
   'editor.noChanges': ' (no changes)',
+  'editor.resize': 'Resize width',
+  'editor.resizeCorner': 'Resize',
 }

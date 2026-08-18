@@ -210,4 +210,29 @@ describe('host plugin wiring', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('bad-request');
   });
+
+  it('rejects a malformed git/commit-file-diff payload as bad-request', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    // An unsafe file path must be rejected at the trust boundary.
+    const result = await handler(Endpoints.gitCommitFileDiff, { path: dir, hash: 'deadbeef', file: '../escape' }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
+
+  it('rides a not-a-repo failure for git/commit-file-diff with a valid payload', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    // dir is a plain (non-git) directory; a well-formed payload reaches the
+    // service, which reports not-a-repo in the value slot.
+    const result = await handler(Endpoints.gitCommitFileDiff, { path: dir, hash: 'deadbeef', file: 'a.txt' }, new AbortController().signal);
+    expect(result.ok).toBe(true);
+    if (result.ok && typeof result.value === 'object' && result.value !== null && 'error' in result.value) {
+      expect((result.value as { error: { code: string } }).error.code).toBe('not-a-repo');
+    } else {
+      throw new Error('expected a SidebarResult failure');
+    }
+  });
 })

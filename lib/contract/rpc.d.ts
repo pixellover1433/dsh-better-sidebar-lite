@@ -4,7 +4,7 @@
  * dependency-free and usable on both halves.
  */
 import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts';
-import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts';
+import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitFileDiffRequest, GitCommitFileDiffResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts';
 /** Endpoint names (also the wire method segment after the channel). */
 export declare const Endpoints: {
     readonly explorerList: "explorer/list";
@@ -18,6 +18,7 @@ export declare const Endpoints: {
     readonly gitCommit: "git/commit";
     readonly gitDiscard: "git/discard";
     readonly gitDiff: "git/diff";
+    readonly gitCommitFileDiff: "git/commit-file-diff";
 };
 export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints];
 /** Request payload per endpoint. */
@@ -33,6 +34,7 @@ export interface BetterSidebarReqMap {
     'git/commit': GitCommitRequest;
     'git/discard': GitDiscardRequest;
     'git/diff': GitDiffRequest;
+    'git/commit-file-diff': GitCommitFileDiffRequest;
 }
 /** Success value per endpoint. */
 export interface BetterSidebarResMap {
@@ -47,6 +49,7 @@ export interface BetterSidebarResMap {
     'git/commit': GitCommitResult;
     'git/discard': null;
     'git/diff': GitDiffResult;
+    'git/commit-file-diff': GitCommitFileDiffResult;
 }
 /** Host-side defaults; all are config-overridable (see host config). */
 export declare const HOST_DEFAULTS: {
@@ -75,4 +78,5 @@ export declare function isGitDiscardRequest(v: unknown): v is GitDiscardRequest;
 export declare function isGitCommitRequest(v: unknown): v is GitCommitRequest;
 export declare function isGitLogRequest(v: unknown): v is GitLogRequest;
 export declare function isGitDiffRequest(v: unknown): v is GitDiffRequest;
+export declare function isGitCommitFileDiffRequest(v: unknown): v is GitCommitFileDiffRequest;
 //# sourceMappingURL=rpc.d.ts.map

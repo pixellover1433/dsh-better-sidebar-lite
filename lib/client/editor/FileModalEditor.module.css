@@ -17,16 +17,60 @@
 }
 
 .dialog {
+  /* Default size (used until the user drags a handle and a size is stored).
+     A user-set value is injected as the --bsd-modal-w/--bsd-modal-h custom
+     properties (clamped to the viewport by the drag handler), which override
+     these defaults cleanly — no max-width/max-height cascade conflict. */
+  --bsd-modal-w: min(560px, calc(100vw - 32px));
+  --bsd-modal-h: min(70%, calc(100vh - 32px));
+  position: relative;
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 560px;
-  max-height: 70%;
+  width: var(--bsd-modal-w);
+  height: var(--bsd-modal-h);
   background: var(--bsd-bg);
   border: 1px solid var(--bsd-border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+}
+
+/* Right-edge resize handle (drag horizontally to change width). Sits on the
+   dialog's right border, transparent until hovered, and grows the cursor hit
+   area beyond its painted strip. */
+.resizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 2;
+}
+.resizeHandle:hover {
+  background: var(--bsd-accent, #0969da);
+  opacity: 0.5;
+}
+
+/* Bottom-right corner resize handle (drag diagonally to change both width and
+   height). Mirrors a native resize grip. */
+.resizeCorner {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 2;
+  background:
+    linear-gradient(135deg, transparent 50%, var(--bsd-muted, #656d76) 50%) no-repeat;
+  background-position: 100% 100%;
+  background-size: 6px 6px;
+}
+.resizeCorner:hover {
+  background: var(--bsd-accent, #0969da);
 }
 
 .header {

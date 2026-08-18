@@ -16,7 +16,7 @@
  * the status actually changed. A refresh is a manual override at any time.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { GitCommitDetailResult, GitLogEntry, GitLogResult, GitStatusEntry, GitStatusResult } from '../../../contract/git.ts'
+import type { GitCommitDetailResult, GitCommitFile, GitLogEntry, GitLogResult, GitStatusEntry, GitStatusResult } from '../../../contract/git.ts'
 import type { SidebarError } from '../../../contract/errors.ts'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
@@ -347,6 +347,22 @@ export function GitTab({ rpc, emitter, t }: GitTabProps) {
     setSelectedCommit(null)
   }, [])
 
+  /**
+   * Open a changed file's diff for the selected old commit (double-click).
+   * Diff against the file's new-side path (`file.path`), which for a rename
+   * (R) or copy (C) is the destination — the same convention `git show` uses.
+   * Emits into the shared emitter so the dock-wide modal renders `kind: 'commit'`.
+   */
+  const openCommitFile = useCallback((file: GitCommitFile): void => {
+    if (root === undefined || selectedCommit === null) return
+    const path = root + '/' + file.path
+    const name = file.path.slice(file.path.lastIndexOf('/') + 1)
+    emitter.emit({
+      path, name, kind: 'file', source: 'double-click', rootPath: root,
+      diff: { kind: 'commit', root, hash: selectedCommit.hash.trim(), file: file.path },
+    })
+  }, [root, selectedCommit, emitter])
+
   /** Fetch the next log page (larger limit, replaces the list) when truncated. */
   const loadMore = useCallback(() => {
     if (root === undefined) return
@@ -493,6 +509,7 @@ export function GitTab({ rpc, emitter, t }: GitTabProps) {
                   t={t}
                   onBack={closeCommit}
                   onRetry={() => openCommit(selectedCommit)}
+                  onOpenFile={openCommitFile}
                 />
               </div>
             )}

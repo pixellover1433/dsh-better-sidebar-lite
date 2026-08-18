@@ -3,6 +3,18 @@
  * emitter ships so future editors integrate without explorer changes.
  */
 
+/**
+ * The `diff` payload a file opener may attach so the modal shows a git patch
+ * (two-pane) instead of the file's raw content. A discriminated union keeps the
+ * two diff sources distinct: a live working-tree status row diffs against the
+ * index/HEAD, while an old commit's file diffs against that commit's parent(s).
+ */
+export type ExplorerOpenFileDiff =
+  /** A tracked row from git status: working-tree vs index or index vs HEAD. */
+  | { readonly kind: 'status'; readonly base: 'index' | 'head'; readonly root: string; readonly file: string }
+  /** A file from an old commit's detail: its diff as introduced by that commit. */
+  | { readonly kind: 'commit'; readonly root: string; readonly hash: string; readonly file: string }
+
 export interface ExplorerOpenFileEvent {
   /** Absolute resolved path. */
   readonly path: string
@@ -15,11 +27,12 @@ export interface ExplorerOpenFileEvent {
   readonly rootPath: string
   /**
    * Present only when the opener wants the modal to show the file's diff
-   * instead of its raw content. The git tab sets it for tracked status rows
-   * (staged → base 'head', unstaged → base 'index'); the explorer and
-   * untracked git rows leave it undefined so the editor shows raw content.
+   * instead of its raw content. Status rows (staged → kind 'status' base 'head',
+   * unstaged → kind 'status' base 'index') and old-commit file rows (kind
+   * 'commit') set it; the explorer and untracked git rows leave it undefined so
+   * the editor shows raw content.
    */
-  readonly diff?: { readonly base: 'index' | 'head'; readonly root: string; readonly file: string }
+  readonly diff?: ExplorerOpenFileDiff
 }
 
 /** Subscribe face; also the type the dock wires into the tab factory. */

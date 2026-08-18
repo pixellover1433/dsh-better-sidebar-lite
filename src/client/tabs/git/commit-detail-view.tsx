@@ -14,6 +14,8 @@ export interface CommitDetailViewProps {
   t: (key: GitKey, params?: Record<string, unknown>) => string
   onBack: () => void
   onRetry: () => void
+  /** Open a changed file's diff (double-click) via the shared open-file emitter. */
+  onOpenFile: (file: GitCommitFile) => void
 }
 
 type Tone = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'other'
@@ -46,7 +48,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 })
 
-export function CommitDetailView({ commit, state, t, onBack, onRetry }: CommitDetailViewProps) {
+export function CommitDetailView({ commit, state, t, onBack, onRetry, onOpenFile }: CommitDetailViewProps) {
   return (
     <div className={styles.commitDetail}>
       <div className={styles.commitDetailHead}>
@@ -82,7 +84,12 @@ export function CommitDetailView({ commit, state, t, onBack, onRetry }: CommitDe
                 {state.result.files.map(file => {
                   const cls = TONE_CLASS[toneOf(file.status)]
                   return (
-                    <div className={styles.commitFileRow} key={file.path}>
+                    <div
+                      className={styles.commitFileRow}
+                      key={file.path}
+                      onDoubleClick={() => onOpenFile(file)}
+                      title={file.path}
+                    >
                       <span className={[styles.fileStatus, cls].filter(Boolean).join(' ')}>{file.status}</span>
                       <span className={styles.filePath}>
                         {file.originalPath !== undefined && (

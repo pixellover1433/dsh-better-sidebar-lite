@@ -184,7 +184,7 @@ describe('FileModalEditor', () => {
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
       path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
-      diff: { base: 'head', root: '/workspace/repo', file: 'a.txt' },
+      diff: { kind: 'status', base: 'head', root: '/workspace/repo', file: 'a.txt' },
     }
     act(() => emitter.emit(event))
     expect(screen.getByRole('status')).toBeTruthy()
@@ -212,7 +212,7 @@ describe('FileModalEditor', () => {
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
       path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
-      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+      diff: { kind: 'status', base: 'index', root: '/workspace/repo', file: 'a.txt' },
     }
     act(() => emitter.emit(event))
     const oldEl = await screen.findByText('old')
@@ -237,7 +237,7 @@ describe('FileModalEditor', () => {
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
       path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
-      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+      diff: { kind: 'status', base: 'index', root: '/workspace/repo', file: 'a.txt' },
     }
     act(() => emitter.emit(event))
     expect(await screen.findByText(/no changes/)).toBeTruthy()
@@ -255,7 +255,7 @@ describe('FileModalEditor', () => {
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
       path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
-      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+      diff: { kind: 'status', base: 'index', root: '/workspace/repo', file: 'a.txt' },
     }
     act(() => emitter.emit(event))
     // No crash; the raw patch text is rendered verbatim as fallback content.
@@ -276,7 +276,7 @@ describe('FileModalEditor', () => {
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
       path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
-      diff: { base: 'head', root: '/workspace/repo', file: 'a.txt' },
+      diff: { kind: 'status', base: 'head', root: '/workspace/repo', file: 'a.txt' },
     }
     act(() => emitter.emit(event))
     expect(await screen.findByText('A')).toBeTruthy()
@@ -309,11 +309,78 @@ describe('FileModalEditor', () => {
     render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
     const event: ExplorerOpenFileEvent = {
       path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
-      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+      diff: { kind: 'status', base: 'index', root: '/workspace/repo', file: 'a.txt' },
     }
     act(() => emitter.emit(event))
     expect(await screen.findByRole('alert')).toBeTruthy()
     expect(screen.getByText('git diff exploded')).toBeTruthy()
+  })
+
+  it('calls gitCommitFileDiff and renders a two-pane diff for a kind:commit open', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitCommitFileDiff, () => Promise.resolve({
+      ok: true,
+      value: {
+        diff: 'diff --git a/a.txt b/a.txt\n@@ -1,2 +1,2 @@\n alpha\n-gone\n+added\n omega\n',
+        empty: false,
+      },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { kind: 'commit', root: '/workspace/repo', hash: 'deadbeef', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    expect(await screen.findByText('added')).toBeTruthy()
+    // Context appears on both panes (twice); no raw single-pane <pre> is used.
+    expect(screen.getAllByText('alpha')).toHaveLength(2)
+    expect(screen.queryByText(/diff --git a\/a.txt/)).toBeNull()
+    const call = rpc.calls.find(c => c.endpoint === Endpoints.gitCommitFileDiff)
+    expect(call?.payload).toEqual({ path: '/workspace/repo', hash: 'deadbeef', file: 'a.txt' })
+    // A commit open must neither read the raw file nor call the working-tree diff.
+    expect(rpc.calls.some(c => c.endpoint === Endpoints.explorerRead)).toBe(false)
+    expect(rpc.calls.some(c => c.endpoint === Endpoints.gitDiff)).toBe(false)
+  })
+
+  it('never calls the commit-file-diff endpoint for a kind:status open', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: true,
+      value: { diff: 'diff --git a/a.txt b/a.txt\n@@ -1,1 +1,1 @@\n-old\n+new\n', empty: false },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { kind: 'status', base: 'index', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    await screen.findByText('new')
+    expect(rpc.calls.some(c => c.endpoint === Endpoints.gitCommitFileDiff)).toBe(false)
+  })
+
+  it('renders resize handles and applies a persisted modal size to the dialog', async () => {
+    localStorage.setItem('dsh.betterSidebar.fileModalSize', JSON.stringify({ width: 820, height: 600 }))
+    try {
+      const rpc = new FakeRpc()
+      const emitter = new ExplorerOpenFileEmitter()
+      rpc.setHandler(Endpoints.explorerRead, () => Promise.resolve({
+        ok: true,
+        value: { path: '/workspace/a.txt', content: 'hello', truncated: false },
+      }))
+      render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+      act(() => emitter.emit(openEvent('/workspace/a.txt')))
+      await screen.findByText('hello')
+      const dialog = screen.getByRole('dialog') as HTMLElement
+      // The persisted size is injected as dialogs CSS custom properties.
+      expect(dialog.style.getPropertyValue('--bsd-modal-w')).toBe('820px')
+      expect(dialog.style.getPropertyValue('--bsd-modal-h')).toBe('600px')
+      // Both resize handles render (right-edge width + bottom-right corner).
+      expect(screen.getAllByRole('separator')).toHaveLength(2)
+    } finally {
+      localStorage.removeItem('dsh.betterSidebar.fileModalSize')
+    }
   })
 })
 

@@ -120,4 +120,18 @@ export interface GitDiffResult {
     /** True when git reported no diff for the file (e.g. a tracked file with no change). */
     empty: boolean;
 }
+export interface GitCommitFileDiffRequest {
+    /** Absolute path of the work tree root. */
+    path: string;
+    /** Commit id (full or abbreviated) whose version of the file to diff. */
+    hash: string;
+    /** Repo-relative path of the file to diff (path-safe like stage/discard). */
+    file: string;
+}
+export interface GitCommitFileDiffResult {
+    /** Unified diff text for the file as of that commit (utf8). */
+    diff: string;
+    /** True when git reported no diff for the file (e.g. a file unchanged by the commit). */
+    empty: boolean;
+}
 //# sourceMappingURL=git.d.ts.map

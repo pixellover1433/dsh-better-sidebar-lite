@@ -8,6 +8,7 @@ import {
   Endpoints,
   HOST_DEFAULTS,
   isExplorerReadRequest,
+  isGitCommitFileDiffRequest,
   isGitDiffRequest,
 } from '../../src/contract/index.ts'
 
@@ -74,5 +75,40 @@ describe('git/diff endpoint', () => {
     expect(isGitDiffRequest({ path: '/workspace', file: '..', base: 'index' })).toBe(false)
     expect(isGitDiffRequest({ path: '/workspace', file: '../escape', base: 'index' })).toBe(false)
     expect(isGitDiffRequest({ path: '/workspace', file: 'some/../escape', base: 'index' })).toBe(false)
+  })
+})
+
+describe('git/commit-file-diff endpoint', () => {
+  it('registers the endpoint with a stable wire name', () => {
+    expect(Endpoints.gitCommitFileDiff).toBe('git/commit-file-diff')
+  })
+
+  it('accepts a valid payload with a commit hash and safe file path', () => {
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', hash: 'deadbeef1234', file: 'src/a.ts' })).toBe(true)
+  })
+
+  it('rejects a non-object payload', () => {
+    expect(isGitCommitFileDiffRequest(undefined)).toBe(false)
+    expect(isGitCommitFileDiffRequest(null)).toBe(false)
+    expect(isGitCommitFileDiffRequest('path')).toBe(false)
+  })
+
+  it('rejects a missing or non-string path', () => {
+    expect(isGitCommitFileDiffRequest({ file: 'a.ts', hash: 'abc' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: '', file: 'a.ts', hash: 'abc' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: 42, file: 'a.ts', hash: 'abc' })).toBe(false)
+  })
+
+  it('rejects a missing, malformed, or over-long hash', () => {
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: 'a.ts' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: 'a.ts', hash: '' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: 'a.ts', hash: 'not-a-hash' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: 'a.ts', hash: 'x'.repeat(65) })).toBe(false)
+  })
+
+  it('rejects an unsafe or empty file path (path-safety like stage/discard)', () => {
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: '', hash: 'abc' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: '/abs', hash: 'abc' })).toBe(false)
+    expect(isGitCommitFileDiffRequest({ path: '/workspace', file: '../escape', hash: 'abc' })).toBe(false)
   })
 })

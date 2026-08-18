@@ -26,6 +26,8 @@ export declare const zh: {
     readonly 'editor.close': "关闭";
     readonly 'editor.truncated': "（文件较大，内容已截断）";
     readonly 'editor.noChanges': "（无变更）";
+    readonly 'editor.resize': "调整宽度";
+    readonly 'editor.resizeCorner': "调整大小";
 };
 /** Key domain of the dock namespace. */
 export type DockKey = keyof typeof zh;

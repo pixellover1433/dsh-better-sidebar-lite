@@ -3,7 +3,7 @@
  * GitRunner. Every public method returns a SidebarResult, never throws. The
  * runner classification is translated to the contract's typed error union.
  */
-import { type GitCommitFile, type GitCommitDetailRequest, type GitCommitDetailResult, type GitCommitRequest, type GitCommitResult, type GitDiffRequest, type GitDiffResult, type GitDiscardRequest, type GitLogRequest, type GitLogResult, type GitStageRequest, type GitStatusRequest, type GitStatusResult, type SidebarResult } from '../contract/index.ts';
+import { type GitCommitFile, type GitCommitDetailRequest, type GitCommitDetailResult, type GitCommitFileDiffRequest, type GitCommitFileDiffResult, type GitCommitRequest, type GitCommitResult, type GitDiffRequest, type GitDiffResult, type GitDiscardRequest, type GitLogRequest, type GitLogResult, type GitStageRequest, type GitStatusRequest, type GitStatusResult, type SidebarResult } from '../contract/index.ts';
 import { GitRunner } from './git-runner.ts';
 /** Untracked reporting mode forwarded verbatim to git status. */
 export type UntrackedMode = 'all' | 'normal';
@@ -31,6 +31,14 @@ export declare class GitService {
      * git tab never routes them here — the editor shows the full file instead.
      */
     diff(request: GitDiffRequest, signal?: AbortSignal): Promise<SidebarResult<GitDiffResult>>;
+    /**
+     * Diff a single file as introduced by an OLD commit (git show <hash> -- <file>).
+     * The diff is computed against the commit's parent(s) straight from the repo
+     * object database, so it reflects history rather than the current working
+     * tree and works even when the file's working-tree copy has since changed or
+     * been deleted. For a root commit this diffs against the empty tree.
+     */
+    commitFileDiff(request: GitCommitFileDiffRequest, signal?: AbortSignal): Promise<SidebarResult<GitCommitFileDiffResult>>;
     stage(request: GitStageRequest, signal?: AbortSignal): Promise<SidebarResult<null>>;
     unstage(request: GitStageRequest, signal?: AbortSignal): Promise<SidebarResult<null>>;
     /**

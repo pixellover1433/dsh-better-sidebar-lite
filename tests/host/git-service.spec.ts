@@ -278,3 +278,75 @@ describe('GitService.diff over a scripted repo', () => {
     }
   })
 })
+
+describe('GitService.commitFileDiff over a scripted repo', () => {
+  let repo: CommitFilesRepo
+  afterEach(async () => { await repo?.cleanup() })
+
+  const itGit = it.skipIf(!gitAvailable())
+
+  itGit('returns the historical diff of a file modified in a past commit', async () => {
+    repo = await createCommitFilesRepo()
+    const service = makeService(makeGit({}))
+    // mixedCommit modified a.txt from 'a' to 'a2'.
+    const res = await service.commitFileDiff({ path: repo.root, hash: repo.mixedCommit, file: 'a.txt' })
+    if (!res.ok) throw new Error('expected ok, got ' + JSON.stringify(res.error))
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('diff --git a/a.txt b/a.txt')
+    expect(res.value.diff).toContain('-a')
+    expect(res.value.diff).toContain('+a2')
+  })
+
+  itGit('diffs an added file against the previous parent and reports additions', async () => {
+    repo = await createCommitFilesRepo()
+    const service = makeService(makeGit({}))
+    // mixedCommit added c.txt.
+    const res = await service.commitFileDiff({ path: repo.root, hash: repo.mixedCommit, file: 'c.txt' })
+    if (!res.ok) throw new Error('expected ok')
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('+c')
+  })
+
+  itGit('still returns the historical diff when the working-tree file has since moved', async () => {
+    repo = await createCommitFilesRepo()
+    const service = makeService(makeGit({}))
+    // At HEAD a.txt was renamed to moved.txt, so a.txt no longer exists in the
+    // working tree — but the command reads the repo object db, so the
+    // mixedCommit diff for a.txt is still returned.
+    const res = await service.commitFileDiff({ path: repo.root, hash: repo.mixedCommit, file: 'a.txt' })
+    if (!res.ok) throw new Error('expected ok, got ' + JSON.stringify(res.error))
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('diff --git a/a.txt b/a.txt')
+  })
+
+  itGit('diffs a deleted file in a past commit', async () => {
+    repo = await createCommitFilesRepo()
+    const service = makeService(makeGit({}))
+    // mixedCommit deleted b.txt.
+    const res = await service.commitFileDiff({ path: repo.root, hash: repo.mixedCommit, file: 'b.txt' })
+    if (!res.ok) throw new Error('expected ok')
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('-b')
+  })
+
+  itGit('diffs a root commit file against the empty tree (pure additions)', async () => {
+    repo = await createCommitFilesRepo()
+    const service = makeService(makeGit({}))
+    const res = await service.commitFileDiff({ path: repo.root, hash: repo.rootCommit, file: 'a.txt' })
+    if (!res.ok) throw new Error('expected ok')
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('+a')
+  })
+
+  itGit('reports not-a-repo for a plain directory', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bslite-cfd-'))
+    try {
+      const service = makeService(makeGit({}))
+      const res = await service.commitFileDiff({ path: dir, hash: 'deadbeef', file: 'a.txt' })
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.code).toBe('not-a-repo')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
