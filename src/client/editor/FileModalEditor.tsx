@@ -34,6 +34,11 @@ interface OpenFileState {
   name: string
   rootPath: string
   phase: 'loading' | 'error' | 'loaded'
+  /**
+   * 'content' renders raw file text (explorer opens); 'diff' renders a unified
+   * git patch (tracked git status opens).
+   */
+  mode: 'content' | 'diff'
   /** Present when phase === 'loaded'. */
   content?: string
   /** Present when phase === 'loaded'; true when the host cut the content at its cap. */
@@ -54,25 +59,38 @@ export function FileModalEditor({ rpc, events, t }: FileModalEditorProps): JSX.E
   useEffect(() => {
     const disposer = events.onOpenFile((event: ExplorerOpenFileEvent): void => {
       const id = ++requestIdRef.current
-      setFile({ path: event.path, name: event.name, rootPath: event.rootPath, phase: 'loading' })
+      const diff = event.diff
+      const mode = diff === undefined ? 'content' : 'diff'
+      setFile({ path: event.path, name: event.name, rootPath: event.rootPath, mode, phase: 'loading' })
       void (async () => {
-        const res = await rpc.call(Endpoints.explorerRead, { path: event.path })
+        // Untracked/missing rows and explorer opens carry no `diff`, so read the
+        // raw file; tracked git opens fetch the file's diff instead.
+        const res = diff === undefined
+          ? await rpc.call(Endpoints.explorerRead, { path: event.path })
+          : await rpc.call(Endpoints.gitDiff, { path: diff.root, file: diff.file, base: diff.base })
         // A newer open superseded this read: drop the stale response.
         if (requestIdRef.current !== id) return
         if (res.ok) {
+          // Explorer reads carry `truncated`; git diffs carry `diff` and never
+          // truncate (git output for one file is already bounded).
+          const { content, truncated } = 'truncated' in res.value
+            ? { content: res.value.content, truncated: res.value.truncated }
+            : { content: res.value.diff, truncated: false }
           setFile({
             path: event.path,
             name: event.name,
             rootPath: event.rootPath,
+            mode,
             phase: 'loaded',
-            content: res.value.content,
-            truncated: res.value.truncated,
+            content,
+            truncated,
           })
         } else {
           setFile({
             path: event.path,
             name: event.name,
             rootPath: event.rootPath,
+            mode,
             phase: 'error',
             errorMessage: res.error.message,
           })

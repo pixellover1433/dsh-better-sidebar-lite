@@ -228,3 +228,53 @@ describe('GitService.commitFiles over a scripted repo', () => {
   })
 
 })
+
+describe('GitService.diff over a scripted repo', () => {
+  let repo: ScriptedRepo
+  afterEach(async () => { await repo?.cleanup() })
+
+  const itGit = it.skipIf(!gitAvailable())
+
+  itGit('diffs an unstaged modification against the index (git diff)', async () => {
+    repo = await createStatusRepo()
+    const service = makeService(makeGit({}))
+    const res = await service.diff({ path: repo.root, file: 'base.txt', base: 'index' })
+    if (!res.ok) throw new Error('expected ok, got ' + JSON.stringify(res.error))
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('diff --git a/base.txt b/base.txt')
+    expect(res.value.diff).toContain('-base')
+    expect(res.value.diff).toContain('+base changed')
+  })
+
+  itGit('diffs a staged file against HEAD (git diff --cached)', async () => {
+    repo = await createStatusRepo()
+    const service = makeService(makeGit({}))
+    const res = await service.diff({ path: repo.root, file: 'staged-new.txt', base: 'head' })
+    if (!res.ok) throw new Error('expected ok, got ' + JSON.stringify(res.error))
+    expect(res.value.empty).toBe(false)
+    expect(res.value.diff).toContain('diff --git a/staged-new.txt b/staged-new.txt')
+    expect(res.value.diff).toContain('+staged')
+  })
+
+  itGit('reports empty for an untracked file (no tracked base)', async () => {
+    repo = await createStatusRepo()
+    const service = makeService(makeGit({}))
+    // git diff ignores untracked files, so working-tree-vs-index is a no-op.
+    const res = await service.diff({ path: repo.root, file: 'untracked.txt', base: 'index' })
+    if (!res.ok) throw new Error('expected ok, got ' + JSON.stringify(res.error))
+    expect(res.value.empty).toBe(true)
+    expect(res.value.diff).toBe('')
+  })
+
+  itGit('reports not-a-repo for a plain directory', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bslite-diff-'))
+    try {
+      const service = makeService(makeGit({}))
+      const res = await service.diff({ path: dir, file: 'x.txt', base: 'index' })
+      expect(res.ok).toBe(false)
+      if (!res.ok) expect(res.error.code).toBe('not-a-repo')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})

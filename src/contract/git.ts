@@ -116,3 +116,22 @@ export interface GitCommitResult {
   /** The new commit's full object id. */
   hash: string
 }
+
+/** Diff base of a git/diff request: which two trees to compare. */
+export type GitDiffBase = 'index' | 'head'
+
+export interface GitDiffRequest {
+  /** Absolute path of the work tree root. */
+  path: string
+  /** Repo-relative path of the file to diff (path-safe like stage/discard). */
+  file: string
+  /** 'index' = working tree vs index (git diff); 'head' = index vs HEAD (git diff --cached). */
+  base: GitDiffBase
+}
+
+export interface GitDiffResult {
+  /** Unified diff text for the file (utf8). */
+  diff: string
+  /** True when git reported no diff for the file (e.g. a tracked file with no change). */
+  empty: boolean
+}

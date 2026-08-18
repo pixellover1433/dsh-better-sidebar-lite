@@ -16,6 +16,7 @@ import {
   isGitCommitDetailRequest,
   isGitCommitRequest,
   isGitDiscardRequest,
+  isGitDiffRequest,
   isGitLogRequest,
   isGitStageRequest,
   isGitStatusRequest,
@@ -124,6 +125,10 @@ async function dispatch(
     case Endpoints.gitDiscard: {
       if (!isGitDiscardRequest(payload)) return badRequest('invalid payload for ' + endpoint)
       return toRpcResult(await services.git.discard(payload, signal))
+    }
+    case Endpoints.gitDiff: {
+      if (!isGitDiffRequest(payload)) return badRequest('invalid payload for ' + endpoint)
+      return toRpcResult(await services.git.diff(payload, signal))
     }
     default:
       return badRequest('unknown endpoint ' + endpoint)

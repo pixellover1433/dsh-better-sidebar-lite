@@ -13,6 +13,13 @@ export interface ExplorerOpenFileEvent {
   readonly source: 'keyboard-enter' | 'double-click' | 'command'
   /** The tree root (a base for readers). */
   readonly rootPath: string
+  /**
+   * Present only when the opener wants the modal to show the file's diff
+   * instead of its raw content. The git tab sets it for tracked status rows
+   * (staged → base 'head', unstaged → base 'index'); the explorer and
+   * untracked git rows leave it undefined so the editor shows raw content.
+   */
+  readonly diff?: { readonly base: 'index' | 'head'; readonly root: string; readonly file: string }
 }
 
 /** Subscribe face; also the type the dock wires into the tab factory. */

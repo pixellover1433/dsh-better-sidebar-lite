@@ -4,7 +4,7 @@
  * dependency-free and usable on both halves.
  */
 import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts'
-import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
+import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
 
 /** Endpoint names (also the wire method segment after the channel). */
 export const Endpoints = {
@@ -18,6 +18,7 @@ export const Endpoints = {
   gitCommitDetail: 'git/commit-detail',
   gitCommit: 'git/commit',
   gitDiscard: 'git/discard',
+  gitDiff: 'git/diff',
 } as const
 
 export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints]
@@ -34,6 +35,7 @@ export interface BetterSidebarReqMap {
   'git/commit-detail': GitCommitDetailRequest
   'git/commit': GitCommitRequest
   'git/discard': GitDiscardRequest
+  'git/diff': GitDiffRequest
 }
 
 /** Success value per endpoint. */
@@ -48,6 +50,7 @@ export interface BetterSidebarResMap {
   'git/commit-detail': GitCommitDetailResult
   'git/commit': GitCommitResult
   'git/discard': null
+  'git/diff': GitDiffResult
 }
 
 /** Host-side defaults; all are config-overridable (see host config). */
@@ -101,13 +104,21 @@ export function isGitCommitDetailRequest(v: unknown): v is GitCommitDetailReques
 
 
 /**
+ * Path-safety check for a single repo-relative file path (no leading slash,
+ * no traversal). Shared by the file-list guards and the single-file diff guard.
+ */
+function isSafeFile(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0 && v.length <= 1024 && !v.startsWith('/') && v !== '..' && !v.includes('../')
+}
+
+/**
  * Helper shared by stage/unstage-style and discard payloads: a non-empty file
  * list of safe repo-relative paths (no leading slash, no traversal). Empty
  * lists are rejected — prefer an explicit no-op over a footgun.
  */
 function isSafeFileList(v: unknown): v is readonly string[] {
   if (!Array.isArray(v) || v.length === 0 || v.length > 1000) return false
-  return v.every(f => typeof f === 'string' && f.length > 0 && f.length <= 1024 && !f.startsWith('/') && f !== '..' && !f.includes('../'))
+  return v.every(isSafeFile)
 }
 
 export function isGitStageRequest(v: unknown): v is GitStageRequest {
@@ -137,4 +148,9 @@ export function isGitLogRequest(v: unknown): v is GitLogRequest {
   if (!isRecord(v) || !isPath(v.path)) return false
   if (v.limit === undefined) return true
   return typeof v.limit === 'number' && Number.isInteger(v.limit) && v.limit >= 1 && v.limit <= HOST_DEFAULTS.maxLogEntries
+}
+
+export function isGitDiffRequest(v: unknown): v is GitDiffRequest {
+  return isRecord(v) && isPath(v.path) && isSafeFile(v.file)
+    && (v.base === 'index' || v.base === 'head')
 }

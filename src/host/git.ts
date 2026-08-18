@@ -10,6 +10,8 @@ import {
   type GitCommitDetailResult,
   type GitCommitRequest,
   type GitCommitResult,
+  type GitDiffRequest,
+  type GitDiffResult,
   type GitDiscardRequest,
   type GitFileStatus,
   type GitLogEntry,
@@ -128,6 +130,24 @@ export class GitService {
           files: parseNameStatus(filesRes.stdout),
         },
       }
+    })
+  }
+
+  /**
+   * Diff a single changed file against its base. `git diff` (base 'index')
+   * compares the working tree to the index; `git diff --cached` (base 'head')
+   * compares the index to HEAD. Untracked files have no tracked base, so the
+   * git tab never routes them here — the editor shows the full file instead.
+   */
+  diff(request: GitDiffRequest, signal?: AbortSignal): Promise<SidebarResult<GitDiffResult>> {
+    return this.withProbe(request.path, signal, async () => {
+      const args = request.base === 'head'
+        ? ['diff', '--cached', '--', request.file]
+        : ['diff', '--', request.file]
+      const res = await this.runner.run(args, request.path, signal)
+      if (!res.ok) return { ok: false, error: mapRunnerError(res, request.path) }
+      const diff = res.stdout.toString('utf8')
+      return { ok: true, value: { diff, empty: diff.length === 0 } }
     })
   }
 

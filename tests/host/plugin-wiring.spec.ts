@@ -201,4 +201,13 @@ describe('host plugin wiring', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('bad-request');
   });
+
+  it('rejects a malformed git/diff payload as bad-request', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.gitDiff, { path: dir, file: '../escape', base: 'index' }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
 })

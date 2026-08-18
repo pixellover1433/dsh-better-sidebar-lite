@@ -3,7 +3,7 @@
  * GitRunner. Every public method returns a SidebarResult, never throws. The
  * runner classification is translated to the contract's typed error union.
  */
-import { type GitCommitFile, type GitCommitDetailRequest, type GitCommitDetailResult, type GitCommitRequest, type GitCommitResult, type GitDiscardRequest, type GitLogRequest, type GitLogResult, type GitStageRequest, type GitStatusRequest, type GitStatusResult, type SidebarResult } from '../contract/index.ts';
+import { type GitCommitFile, type GitCommitDetailRequest, type GitCommitDetailResult, type GitCommitRequest, type GitCommitResult, type GitDiffRequest, type GitDiffResult, type GitDiscardRequest, type GitLogRequest, type GitLogResult, type GitStageRequest, type GitStatusRequest, type GitStatusResult, type SidebarResult } from '../contract/index.ts';
 import { GitRunner } from './git-runner.ts';
 /** Untracked reporting mode forwarded verbatim to git status. */
 export type UntrackedMode = 'all' | 'normal';
@@ -24,6 +24,13 @@ export declare class GitService {
     status(request: GitStatusRequest, signal?: AbortSignal): Promise<SidebarResult<GitStatusResult>>;
     log(request: GitLogRequest, signal?: AbortSignal): Promise<SidebarResult<GitLogResult>>;
     commitDetail(request: GitCommitDetailRequest, signal?: AbortSignal): Promise<SidebarResult<GitCommitDetailResult>>;
+    /**
+     * Diff a single changed file against its base. `git diff` (base 'index')
+     * compares the working tree to the index; `git diff --cached` (base 'head')
+     * compares the index to HEAD. Untracked files have no tracked base, so the
+     * git tab never routes them here — the editor shows the full file instead.
+     */
+    diff(request: GitDiffRequest, signal?: AbortSignal): Promise<SidebarResult<GitDiffResult>>;
     stage(request: GitStageRequest, signal?: AbortSignal): Promise<SidebarResult<null>>;
     unstage(request: GitStageRequest, signal?: AbortSignal): Promise<SidebarResult<null>>;
     /**

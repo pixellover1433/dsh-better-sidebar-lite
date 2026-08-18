@@ -170,6 +170,57 @@ describe('FileModalEditor', () => {
     await act(async () => { second.resolve({ ok: true, value: { path: '/workspace/second.txt', content: 'FRESH', truncated: false } }) })
     expect(await screen.findByText('FRESH')).toBeTruthy()
   })
+
+  it('calls gitDiff and renders the diff when the open event carries diff', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: true,
+      value: { diff: 'diff --git a/a.txt b/a.txt\n+added\n', empty: false },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { base: 'head', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    expect(screen.getByRole('status')).toBeTruthy()
+    expect(await screen.findByText(/diff --git a\/a.txt/)).toBeTruthy()
+    const call = rpc.calls.find(c => c.endpoint === Endpoints.gitDiff)
+    expect(call?.payload).toEqual({ path: '/workspace/repo', file: 'a.txt', base: 'head' })
+    // A diff-mode open must not also read the raw file.
+    expect(rpc.calls.some(c => c.endpoint === Endpoints.explorerRead)).toBe(false)
+  })
+
+  it('calls explorerRead and renders content when the open carries no diff', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.explorerRead, () => Promise.resolve({
+      ok: true,
+      value: { path: '/workspace/a.txt', content: 'hello', truncated: false },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    act(() => emitter.emit(openEvent('/workspace/a.txt')))
+    expect(await screen.findByText('hello')).toBeTruthy()
+    expect(rpc.calls.find(c => c.endpoint === Endpoints.gitDiff)).toBeUndefined()
+  })
+
+  it('shows the error message when a diff fetch fails', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    rpc.setHandler(Endpoints.gitDiff, () => Promise.resolve({
+      ok: false,
+      error: { code: 'git-failed', message: 'git diff exploded', stderrTail: 'x' },
+    }))
+    render(<FileModalEditor rpc={rpc} events={emitter} t={t} />)
+    const event: ExplorerOpenFileEvent = {
+      path: '/workspace/repo/a.txt', name: 'a.txt', kind: 'file', source: 'double-click', rootPath: '/workspace/repo',
+      diff: { base: 'index', root: '/workspace/repo', file: 'a.txt' },
+    }
+    act(() => emitter.emit(event))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(screen.getByText('git diff exploded')).toBeTruthy()
+  })
 })
 
 // Keep the vitest import for isolation; the describe below documents the

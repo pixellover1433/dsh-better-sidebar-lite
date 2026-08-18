@@ -8,6 +8,7 @@ import {
   Endpoints,
   HOST_DEFAULTS,
   isExplorerReadRequest,
+  isGitDiffRequest,
 } from '../../src/contract/index.ts'
 
 describe('explorer/read endpoint', () => {
@@ -36,5 +37,42 @@ describe('explorer/read endpoint', () => {
   it('rejects an implausibly long path beyond the request cap', () => {
     const path = '/'.repeat(HOST_DEFAULTS.maxRequestPathLength + 1)
     expect(isExplorerReadRequest({ path })).toBe(false)
+  })
+})
+
+describe('git/diff endpoint', () => {
+  it('registers the endpoint with a stable wire name', () => {
+    expect(Endpoints.gitDiff).toBe('git/diff')
+  })
+
+  it('accepts a valid payload for either diff base', () => {
+    expect(isGitDiffRequest({ path: '/workspace', file: 'src/a.ts', base: 'index' })).toBe(true)
+    expect(isGitDiffRequest({ path: '/workspace', file: 'src/a.ts', base: 'head' })).toBe(true)
+  })
+
+  it('rejects a non-object payload', () => {
+    expect(isGitDiffRequest(undefined)).toBe(false)
+    expect(isGitDiffRequest(null)).toBe(false)
+    expect(isGitDiffRequest('path')).toBe(false)
+  })
+
+  it('rejects a missing or non-string path', () => {
+    expect(isGitDiffRequest({ file: 'a.ts', base: 'index' })).toBe(false)
+    expect(isGitDiffRequest({ path: '', file: 'a.ts', base: 'index' })).toBe(false)
+    expect(isGitDiffRequest({ path: 42, file: 'a.ts', base: 'index' })).toBe(false)
+  })
+
+  it('rejects an invalid or unknown diff base', () => {
+    expect(isGitDiffRequest({ path: '/workspace', file: 'a.ts', base: 'working' })).toBe(false)
+    expect(isGitDiffRequest({ path: '/workspace', file: 'a.ts', base: 'HEAD' })).toBe(false)
+    expect(isGitDiffRequest({ path: '/workspace', file: 'a.ts' })).toBe(false)
+  })
+
+  it('rejects an unsafe or empty file path (path-safety like stage/discard)', () => {
+    expect(isGitDiffRequest({ path: '/workspace', file: '', base: 'index' })).toBe(false)
+    expect(isGitDiffRequest({ path: '/workspace', file: '/abs/path', base: 'index' })).toBe(false)
+    expect(isGitDiffRequest({ path: '/workspace', file: '..', base: 'index' })).toBe(false)
+    expect(isGitDiffRequest({ path: '/workspace', file: '../escape', base: 'index' })).toBe(false)
+    expect(isGitDiffRequest({ path: '/workspace', file: 'some/../escape', base: 'index' })).toBe(false)
   })
 })

@@ -237,10 +237,30 @@ describe('GitTab', () => {
     await user.dblClick(screen.getByText('b.txt'))
 
     expect(opened).toHaveLength(1)
-    expect(opened[0]).toMatchObject({ path: '/workspace/repo/b.txt', name: 'b.txt', kind: 'file', source: 'double-click', rootPath: ROOT })
+    expect(opened[0]).toMatchObject({
+      path: '/workspace/repo/b.txt', name: 'b.txt', kind: 'file', source: 'double-click', rootPath: ROOT,
+      diff: { base: 'index', root: ROOT, file: 'b.txt' },
+    })
   })
 
-  it('opens a nested untracked row with the worktree root joined to its repo-relative path', async () => {
+  it('opens a staged row with a diff base of head (index vs HEAD)', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    const opened: ExplorerOpenFileEvent[] = []
+    emitter.onOpenFile(e => opened.push(e))
+    rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: mixedStatus() }))
+    rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: emptyLogResult }))
+    renderGitTab(rpc, emitter)
+    const user = userEvent.setup()
+
+    await screen.findByText('a.txt')
+    await user.dblClick(screen.getByText('a.txt'))
+
+    expect(opened).toHaveLength(1)
+    expect(opened[0]?.diff).toEqual({ base: 'head', root: ROOT, file: 'a.txt' })
+  })
+
+  it('opens a nested untracked row with no diff (full-content representation)', async () => {
     const rpc = new FakeRpc()
     const emitter = new ExplorerOpenFileEmitter()
     const opened: ExplorerOpenFileEvent[] = []
@@ -257,6 +277,8 @@ describe('GitTab', () => {
     expect(opened[0]?.path).toBe('/workspace/repo/new/c.txt')
     expect(opened[0]?.name).toBe('c.txt')
     expect(opened[0]?.kind).toBe('file')
+    // Untracked files have no tracked base to diff: the editor shows raw content.
+    expect(opened[0]?.diff).toBeUndefined()
   })
 
   it('stages a row: calls git/stage with [path] then refetches status', async () => {
