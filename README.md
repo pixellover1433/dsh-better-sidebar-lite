@@ -21,7 +21,8 @@ dsh plugin add dsh-better-sidebar-lite@v0.0.3-beta.1 --profile web
 ![Alt text](image/review_1.png)
 ---
 ![Alt text](image/review_2.png)
-
+---
+![Alt text](image/review_4.png)
 ## What it is
 
 Two halves of one cordis plugin:
