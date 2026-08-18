@@ -20,12 +20,14 @@ import type { SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-
 import type { SessionListState, WorkspaceListState, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { BetterSidebarRpc } from '../rpc-client.ts'
 import type { BetterSidebarSettings } from '../../contract/settings.ts'
+import type { ExplorerEvents } from '../tabs/explorer/events.ts'
 import type { BetterSidebarTabRegistry, TabDef, TabID } from '../tab-registry/contract.ts'
 import { DockContext } from './context.ts'
 import type { DockContextValue } from './context.ts'
 import { TabList, tabButtonId, tabPanelId } from '../tabbar/tablist.tsx'
 import type { TabListTab } from '../tabbar/tablist.tsx'
 import { TabPanel } from '../tabbar/tabpanel.tsx'
+import { FileModalEditor } from '../editor/FileModalEditor.tsx'
 import { CollapseIcon } from '../icons.tsx'
 import css from './dock.module.css'
 
@@ -46,6 +48,8 @@ export interface DockRootProps {
   useWorkspaces: SnapshotSelectorHook<WorkspaceListState>
   rpc: BetterSidebarRpc
   tabs: BetterSidebarTabRegistry
+  /** Shared open-file event source (explorer + git); the modal editor consumes it. */
+  events: ExplorerEvents
   /** Bound plugin settings scope (user-editable via Settings > Plugins); undefined when the seam is absent. */
   settings: SettingsScope<BetterSidebarSettings> | undefined
   /** Localized shell copy (plugin passes ctx.locale.bind(NS)). */
@@ -100,7 +104,7 @@ function persistOpen(open: boolean): void {
   }
 }
 
-export function DockRoot({ useSessions, useWorkspaces, rpc, tabs, settings, t, layout }: DockRootProps): JSX.Element {
+export function DockRoot({ useSessions, useWorkspaces, rpc, tabs, events, settings, t, layout }: DockRootProps): JSX.Element {
   const snapshot = useTabs(tabs)
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -183,6 +187,12 @@ export function DockRoot({ useSessions, useWorkspaces, rpc, tabs, settings, t, l
           />
         </div>
       ) : null}
+      {/* The open-file modal is mounted OUTSIDE the tab panels so it overlays
+          every tab regardless of which is active. It sits in the provider and
+          stays subscribed even when the dock is collapsed (the provider always
+          renders); the overlay is only visible while the dock region has
+          width. */}
+      <FileModalEditor rpc={rpc} events={events} t={t} />
     </DockContext.Provider>
   )
 }
@@ -230,6 +240,7 @@ function DockBody({
 export function createDockEntry(services: {
   rpc: BetterSidebarRpc
   tabs: BetterSidebarTabRegistry
+  events: ExplorerEvents
   settings: SettingsScope<BetterSidebarSettings> | undefined
   t: TranslateNS<'betterSidebar.dock'>
   layout: DockLayoutActions
@@ -240,6 +251,7 @@ export function createDockEntry(services: {
       useWorkspaces={props.useWorkspaces}
       rpc={services.rpc}
       tabs={services.tabs}
+      events={services.events}
       settings={services.settings}
       t={services.t}
       layout={services.layout}

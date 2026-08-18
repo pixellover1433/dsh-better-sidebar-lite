@@ -25,6 +25,8 @@ export interface BetterSidebarConfig {
   maxLogEntries?: number
   /** git status entry cap. */
   maxStatusEntries?: number
+  /** Read-cap on one file's text content in bytes (open-file editor); larger files truncate. */
+  maxReadBytes?: number
   /** untracked reporting mode: 'all' (default) or 'normal'. */
   untrackedFiles?: UntrackedMode
   /** Basenames hidden by default in explorer listings. */
@@ -40,6 +42,7 @@ export interface ResolvedConfig {
   maxEntriesPerListing: number
   maxLogEntries: number
   maxStatusEntries: number
+  maxReadBytes: number
   untrackedFiles: UntrackedMode
   hidePatterns: readonly string[]
   gitExecutable: string
@@ -65,6 +68,7 @@ export function resolveConfig(config?: BetterSidebarConfig): ResolvedConfig {
     maxEntriesPerListing: config?.maxEntriesPerListing ?? DEFAULTS.maxEntriesPerListing,
     maxLogEntries: config?.maxLogEntries ?? DEFAULTS.maxLogEntries,
     maxStatusEntries: config?.maxStatusEntries ?? DEFAULTS.maxStatusEntries,
+    maxReadBytes: config?.maxReadBytes ?? DEFAULTS.maxReadBytes,
     untrackedFiles: config?.untrackedFiles ?? 'all',
     hidePatterns: config?.hidePatterns ?? ['.git', 'node_modules'],
     gitExecutable: config?.gitExecutable ?? 'git',
@@ -78,6 +82,7 @@ export const Config: z<BetterSidebarConfig> = z.object({
   maxEntriesPerListing: z.natural().min(1).max(50_000).default(DEFAULTS.maxEntriesPerListing),
   maxLogEntries: z.natural().min(1).max(5_000).default(DEFAULTS.maxLogEntries),
   maxStatusEntries: z.natural().min(1).max(50_000).default(DEFAULTS.maxStatusEntries),
+  maxReadBytes: z.natural().min(1).max(1024 * 1024 * 1024).default(DEFAULTS.maxReadBytes),
   untrackedFiles: z.union([z.const('all'), z.const('normal')]).default('all'),
   hidePatterns: z.array(String).default(['.git', 'node_modules']),
   gitExecutable: z.string(),

@@ -7,6 +7,7 @@
  */
 import type { GitStatusEntry, GitStatusResult } from '../../../contract/git.ts';
 import type { BetterSidebarRpc } from '../../rpc-client.ts';
+import type { ExplorerOpenFileEmitter } from '../explorer/events.ts';
 import type { GitKey } from './locales.ts';
 export interface GitStatusViewProps {
     /** Loaded status result (never null). */
@@ -14,6 +15,8 @@ export interface GitStatusViewProps {
     /** Work-tree root sent as the `path` of stage/unstage requests. */
     root: string;
     rpc: BetterSidebarRpc;
+    /** Open-file emitter; double-clicking a file row opens it via the shared modal. */
+    emitter: ExplorerOpenFileEmitter;
     /** Bound git-namespace translate. */
     t: (key: GitKey, params?: Record<string, unknown>) => string;
     /** Invoked after a successful stage/unstage so the parent refetches status. */
@@ -26,5 +29,5 @@ export interface GitStatusViewProps {
     onDiscardAll: () => void;
 }
 export type GlyphTone = 'added' | 'modified' | 'deleted' | 'renamed' | 'unmerged' | 'untracked';
-export declare function GitStatusView({ result, root, rpc, t, onChanged, onActionError, onDiscard, onDiscardAll }: GitStatusViewProps): import("react").JSX.Element;
+export declare function GitStatusView({ result, root, rpc, emitter, t, onChanged, onActionError, onDiscard, onDiscardAll }: GitStatusViewProps): import("react").JSX.Element;
 //# sourceMappingURL=status-view.d.ts.map

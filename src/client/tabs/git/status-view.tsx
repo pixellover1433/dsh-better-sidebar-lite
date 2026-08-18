@@ -8,6 +8,7 @@
 import type { GitStatusEntry, GitStatusResult } from '../../../contract/git.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
 import { Endpoints } from '../../../contract/rpc.ts'
+import type { ExplorerOpenFileEmitter } from '../explorer/events.ts'
 import type { GitKey } from './locales.ts'
 import styles from './git.module.css'
 
@@ -17,6 +18,8 @@ export interface GitStatusViewProps {
   /** Work-tree root sent as the `path` of stage/unstage requests. */
   root: string
   rpc: BetterSidebarRpc
+  /** Open-file emitter; double-clicking a file row opens it via the shared modal. */
+  emitter: ExplorerOpenFileEmitter
   /** Bound git-namespace translate. */
   t: (key: GitKey, params?: Record<string, unknown>) => string
   /** Invoked after a successful stage/unstage so the parent refetches status. */
@@ -122,14 +125,21 @@ function RowActions({ entry, onStage, onUnstage, onDiscard, t }: RowActionsProps
 
 interface RowProps extends RowActionsProps {
   entry: GitStatusEntry
+  /** Open the row's file (double-click) via the shared emitter. */
+  onOpen: (entry: GitStatusEntry) => void
 }
 
-function Row({ entry, onStage, onUnstage, onDiscard, t }: RowProps) {
+function Row({ entry, onStage, onUnstage, onDiscard, onOpen, t }: RowProps) {
   const { letter, tone } = glyphOf(entry)
   const originalPath = entry.originalPath
   const fullLabel = originalPath === undefined ? entry.path : originalPath + ' -> ' + entry.path
   return (
-    <div className={styles.row} aria-label={fullLabel} title={fullLabel}>
+    <div
+      className={styles.row}
+      aria-label={fullLabel}
+      title={fullLabel}
+      onDoubleClick={() => onOpen(entry)}
+    >
       <span className={composeGlyph(styles.glyph, TONE_CLASS[tone])} aria-hidden="true">{letter}</span>
       <span className={styles.filePath}>
         {entry.originalPath !== undefined && (
@@ -149,12 +159,14 @@ interface SectionProps {
   onStage: (entry: GitStatusEntry) => void
   onUnstage: (entry: GitStatusEntry) => void
   onDiscard: (entry: GitStatusEntry) => void
+  /** Open a row's file (double-click). */
+  onOpen: (entry: GitStatusEntry) => void
   /** Optional section-level action (e.g. Stage all / Unstage all). */
   sectionAction?: { label: string; onClick: () => void }
   conflictStyles?: boolean
 }
 
-function Section({ title, entries, t, onStage, onUnstage, onDiscard, sectionAction, conflictStyles }: SectionProps) {
+function Section({ title, entries, t, onStage, onUnstage, onDiscard, onOpen, sectionAction, conflictStyles }: SectionProps) {
   const cls = conflictStyles ? styles.section + ' ' + styles.conflictSection : styles.section
   return (
     <section className={cls}>
@@ -171,14 +183,14 @@ function Section({ title, entries, t, onStage, onUnstage, onDiscard, sectionActi
       </div>
       <div className={styles.rows}>
         {entries.map(entry => (
-          <Row key={entry.path} entry={entry} onStage={onStage} onUnstage={onUnstage} onDiscard={onDiscard} t={t} />
+          <Row key={entry.path} entry={entry} onStage={onStage} onUnstage={onUnstage} onDiscard={onDiscard} onOpen={onOpen} t={t} />
         ))}
       </div>
     </section>
   )
 }
 
-export function GitStatusView({ result, root, rpc, t, onChanged, onActionError, onDiscard, onDiscardAll }: GitStatusViewProps) {
+export function GitStatusView({ result, root, rpc, emitter, t, onChanged, onActionError, onDiscard, onDiscardAll }: GitStatusViewProps) {
   async function stagePaths(files: readonly string[]): Promise<void> {
     const res = await rpc.call(Endpoints.gitStage, { path: root, files })
     if (res.ok) { onChanged(); return }
@@ -189,6 +201,14 @@ export function GitStatusView({ result, root, rpc, t, onChanged, onActionError, 
     const res = await rpc.call(Endpoints.gitUnstage, { path: root, files })
     if (res.ok) { onChanged(); return }
     onActionError(res.error.message)
+  }
+
+  /** Open a row's working-tree file via the shared modal (double-click). */
+  const openFile = (entry: GitStatusEntry): void => {
+    // entry.path is `/`-separated repo-relative; join with the worktree root.
+    const path = root + '/' + entry.path
+    const name = entry.path.slice(entry.path.lastIndexOf('/') + 1)
+    emitter.emit({ path, name, kind: 'file', source: 'double-click', rootPath: root })
   }
 
   const onStage = (entry: GitStatusEntry) => { void stagePaths([entry.path]) }
@@ -220,6 +240,7 @@ export function GitStatusView({ result, root, rpc, t, onChanged, onActionError, 
           onStage={onStage}
           onUnstage={onUnstage}
           onDiscard={onDiscard}
+          onOpen={openFile}
           sectionAction={{
             label: t('unstageAll'),
             onClick: () => { void unstagePaths(result.staged.map(e => e.path)) },
@@ -234,6 +255,7 @@ export function GitStatusView({ result, root, rpc, t, onChanged, onActionError, 
           onStage={onStage}
           onUnstage={onUnstage}
           onDiscard={onDiscard}
+          onOpen={openFile}
           conflictStyles
         />
       )}
@@ -245,6 +267,7 @@ export function GitStatusView({ result, root, rpc, t, onChanged, onActionError, 
           onStage={onStage}
           onUnstage={onUnstage}
           onDiscard={onDiscard}
+          onOpen={openFile}
           sectionAction={{
             label: t('stageAll'),
             onClick: () => { void stagePaths(result.unstaged.map(e => e.path)) },
@@ -259,6 +282,7 @@ export function GitStatusView({ result, root, rpc, t, onChanged, onActionError, 
           onStage={onStage}
           onUnstage={onUnstage}
           onDiscard={onDiscard}
+          onOpen={openFile}
           sectionAction={{
             label: t('stageAll'),
             onClick: () => { void stagePaths(result.untracked.map(e => e.path)) },

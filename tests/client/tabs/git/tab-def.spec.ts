@@ -8,6 +8,7 @@ import { isValidElement } from 'react'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
 import { createGitTabDef } from '../../../../src/client/tabs/git/tab-def.ts'
+import { ExplorerOpenFileEmitter } from '../../../../src/client/tabs/explorer/events.ts'
 
 /** Bound translate stub: returns its key verbatim. */
 function fakeCtx(): ClientContext {
@@ -22,7 +23,7 @@ const rpc = {} as BetterSidebarRpc
 
 describe('createGitTabDef', () => {
   it('returns the documented tab definition', () => {
-    const def = createGitTabDef(fakeCtx(), { rpc })
+    const def = createGitTabDef(fakeCtx(), { rpc, emitter: new ExplorerOpenFileEmitter() })
     expect(def.id).toBe('git')
     expect(def.order).toBe(20)
     expect(typeof def.label).toBe('function')
@@ -32,7 +33,7 @@ describe('createGitTabDef', () => {
   })
 
   it('renderPanel produces a panel element', () => {
-    const def = createGitTabDef(fakeCtx(), { rpc })
+    const def = createGitTabDef(fakeCtx(), { rpc, emitter: new ExplorerOpenFileEmitter() })
     const panel = def.renderPanel()
     expect(isValidElement(panel)).toBe(true)
   })

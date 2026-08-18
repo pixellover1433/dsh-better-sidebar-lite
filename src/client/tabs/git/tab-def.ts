@@ -10,12 +10,15 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
 import type { TabDef } from '../../tab-registry/contract.ts'
+import type { ExplorerOpenFileEmitter } from '../explorer/events.ts'
 import { GitBranchIcon } from '../../icons.tsx'
 import { GitTab } from './git-tab.tsx'
 import { NS } from './locales.ts'
 
 export interface CreateGitTabDefApi {
   rpc: BetterSidebarRpc
+  /** Open-file emitter; status rows emit into it so the shared modal opens files. */
+  emitter: ExplorerOpenFileEmitter
 }
 
 export function createGitTabDef(ctx: ClientContext, api: CreateGitTabDefApi): TabDef {
@@ -25,6 +28,6 @@ export function createGitTabDef(ctx: ClientContext, api: CreateGitTabDefApi): Ta
     order: 20,
     label: () => t('tabLabel'),
     icon: createElement(GitBranchIcon),
-    renderPanel: () => createElement(GitTab, { rpc: api.rpc, t }),
+    renderPanel: () => createElement(GitTab, { rpc: api.rpc, emitter: api.emitter, t }),
   }
 }

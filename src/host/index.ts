@@ -41,6 +41,7 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
     maxEntries: cfg.maxEntriesPerListing,
     hidePatterns: cfg.hidePatterns,
     allowedRoots: cfg.allowedRoots,
+    maxReadBytes: cfg.maxReadBytes,
   })
   // The git timeout is user-editable via the settings namespace when the
   // settings seam is composed (Settings > Plugins), read live on every command;

@@ -18,6 +18,8 @@ interface FakeEntry {
   children?: Map<string, FakeEntry>
   /** Directory change stamp returned by stat (mtimeMs). */
   mtimeMs?: number
+  /** File text content returned by readFile (files only). */
+  content?: string
 }
 
 /** A Dirent-shaped object the fake returns from readdir. */
@@ -52,6 +54,7 @@ class FakeFs implements FsPort {
   private readonly tree = new Map<string, FakeEntry>()
   private readonly statThrows = new Map<string, Error>()
   private readonly readdirThrows = new Map<string, Error>()
+  private readonly readFileThrows = new Map<string, Error>()
 
   /** Seed a one-level directory tree under `rootPath` (default '/root'), registering every path. */
   seed(children: Record<string, FakeEntry>, rootPath = '/root'): void {
@@ -63,6 +66,7 @@ class FakeFs implements FsPort {
 
   throwOnStat(p: string, err: Error): void { this.statThrows.set(p, err) }
   throwOnReaddir(p: string, err: Error): void { this.readdirThrows.set(p, err) }
+  throwOnReadFile(p: string, err: Error): void { this.readFileThrows.set(p, err) }
 
   /** Override the change stamp (mtimeMs) a stat of `p` reports. */
   setMtime(p: string, ms: number): void {
@@ -116,6 +120,14 @@ class FakeFs implements FsPort {
     return entry.target ?? ''
   }
 
+  async readFile(p: string): Promise<string> {
+    const thrown = this.readFileThrows.get(p)
+    if (thrown) throw thrown
+    const entry = this.tree.get(p)
+    if (entry === undefined || entry.kind !== 'file') throw errFor('ENOENT', 'readFile')
+    return entry.content ?? ''
+  }
+
   async realpath(p: string): Promise<string> { return p }
 }
 
@@ -126,13 +138,14 @@ function errFor(code: string, syscall: string): NodeJS.ErrnoException {
 }
 
 const dir = (children: Record<string, FakeEntry>): FakeEntry => ({ kind: 'dir', children: new Map(Object.entries(children)) })
-const file = (): FakeEntry => ({ kind: 'file' })
+const file = (content?: string): FakeEntry => ({ kind: 'file', ...(content === undefined ? {} : { content }) })
 const link = (target: string): FakeEntry => ({ kind: 'link', target })
 
-function makeService(fs: FsPort, opts?: Partial<{ maxEntries: number; hidePatterns: string[] }>) {
+function makeService(fs: FsPort, opts?: Partial<{ maxEntries: number; hidePatterns: string[]; maxReadBytes: number }>) {
   return new ExplorerService(fs, {
     maxEntries: opts?.maxEntries ?? 2000,
     hidePatterns: opts?.hidePatterns ?? ['.git', 'node_modules'],
+    ...(opts?.maxReadBytes === undefined ? {} : { maxReadBytes: opts.maxReadBytes }),
   })
 }
 
@@ -398,5 +411,96 @@ describe('ExplorerService.list on the real fs', () => {
     const service = new ExplorerService(fsNode, { maxEntries: 2000, hidePatterns: [] })
     const res = await service.list({ path: path.join(root, 'sub') })
     expect(res.entries.map(e => e.name)).toEqual(['b.txt'])
+  })
+})
+
+describe('ExplorerService.read (open-file editor)', () => {
+  it('resolves a file text content, echoing the path', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'readme.md': file('hello world') })
+    const res = await makeService(fs).read({ path: '/root/readme.md' })
+    expect(res).toEqual({ path: '/root/readme.md', content: 'hello world', truncated: false })
+  })
+
+  it('truncates content that exceeds the read cap and flags truncated', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'big.txt': file('abcdefghij') })
+    const res = await makeService(fs, { maxReadBytes: 5 }).read({ path: '/root/big.txt' })
+    expect(res.path).toBe('/root/big.txt')
+    expect(res.content).toBe('abcde')
+    expect(res.truncated).toBe(true)
+  })
+
+  it('keeps truncated=false when content fits within the cap', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'small.txt': file('abc') })
+    const res = await makeService(fs, { maxReadBytes: 5 }).read({ path: '/root/small.txt' })
+    expect(res).toEqual({ path: '/root/small.txt', content: 'abc', truncated: false })
+  })
+
+  it('rejects a directory as not-directory', async () => {
+    const fs = new FakeFs()
+    fs.seed({ sub: dir({}) })
+    await expect(makeService(fs).read({ path: '/root/sub' })).rejects.toMatchObject({ code: 'not-directory' })
+  })
+
+  it('rejects a missing file as not-found', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    await expect(makeService(fs).read({ path: '/root/nope.txt' })).rejects.toMatchObject({ code: 'not-found' })
+  })
+
+  it('rejects a relative path as param-invalid', async () => {
+    const fs = new FakeFs()
+    fs.seed({})
+    await expect(makeService(fs).read({ path: 'relative/file.txt' })).rejects.toMatchObject({ code: 'param-invalid' })
+  })
+
+  it('respects allowedRoots exactly like list', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'f.txt': file('x') })
+    const service = new ExplorerService(fs, { maxEntries: 2000, hidePatterns: [], allowedRoots: ['/allowed'] })
+    await expect(service.read({ path: '/root/f.txt' })).rejects.toMatchObject({ code: 'outside-allowed-root' })
+  })
+
+  it('accepts a file inside an allowed root', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'f.txt': file('inside') })
+    const service = new ExplorerService(fs, { maxEntries: 2000, hidePatterns: [], allowedRoots: ['/root'] })
+    const res = await service.read({ path: '/root/f.txt' })
+    expect(res).toEqual({ path: '/root/f.txt', content: 'inside', truncated: false })
+  })
+
+  it('maps a read failure via mapFSError (EACCES)', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'f.txt': file('x') })
+    fs.throwOnReadFile('/root/f.txt', errFor('EACCES', 'readFile'))
+    await expect(makeService(fs).read({ path: '/root/f.txt' })).rejects.toMatchObject({ code: 'permission-denied' })
+  })
+
+  it('maps a stat failure via mapFSError (EACCES)', async () => {
+    const fs = new FakeFs()
+    fs.seed({ 'f.txt': file('x') })
+    fs.throwOnStat('/root/f.txt', errFor('EACCES', 'stat'))
+    await expect(makeService(fs).read({ path: '/root/f.txt' })).rejects.toMatchObject({ code: 'permission-denied' })
+  })
+})
+
+describe('ExplorerService.read on the real fs', () => {
+  let root: string
+
+  beforeEach(async () => {
+    root = await fsp.mkdtemp(path.join(os.tmpdir(), 'bslite-read-'))
+    await fsp.writeFile(path.join(root, 'a.txt'), 'alpha beta\n', 'utf8')
+  })
+
+  afterEach(async () => {
+    await fsp.rm(root, { recursive: true, force: true })
+  })
+
+  it('reads a real file as UTF-8', async () => {
+    const service = new ExplorerService(fsNode, { maxEntries: 2000, hidePatterns: [] })
+    const res = await service.read({ path: path.join(root, 'a.txt') })
+    expect(res).toEqual({ path: path.join(root, 'a.txt'), content: 'alpha beta\n', truncated: false })
   })
 })

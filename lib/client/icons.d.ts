@@ -15,4 +15,5 @@ export declare function ChevronDownIcon(props: IconProps): import("react").JSX.E
 export declare function RefreshIcon(props: IconProps): import("react").JSX.Element;
 export declare function CollapseIcon(props: IconProps): import("react").JSX.Element;
 export declare function ExpandIcon(props: IconProps): import("react").JSX.Element;
+export declare function CloseIcon(props: IconProps): import("react").JSX.Element;
 //# sourceMappingURL=icons.d.ts.map

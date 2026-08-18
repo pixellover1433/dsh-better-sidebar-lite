@@ -3,13 +3,14 @@
  * (ADR-002). Hand-rolled type-predicate guards keep the contract
  * dependency-free and usable on both halves.
  */
-import type { ExplorerListRequest, ExplorerListResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts'
+import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts'
 import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
 
 /** Endpoint names (also the wire method segment after the channel). */
 export const Endpoints = {
   explorerList: 'explorer/list',
   explorerStamp: 'explorer/stamp',
+  explorerRead: 'explorer/read',
   gitStatus: 'git/status',
   gitLog: 'git/log',
   gitStage: 'git/stage',
@@ -25,6 +26,7 @@ export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints]
 export interface BetterSidebarReqMap {
   'explorer/list': ExplorerListRequest
   'explorer/stamp': ExplorerStampRequest
+  'explorer/read': ExplorerReadRequest
   'git/status': GitStatusRequest
   'git/log': GitLogRequest
   'git/stage': GitStageRequest
@@ -38,6 +40,7 @@ export interface BetterSidebarReqMap {
 export interface BetterSidebarResMap {
   'explorer/list': ExplorerListResult
   'explorer/stamp': ExplorerStampResult
+  'explorer/read': ExplorerReadResult
   'git/status': GitStatusResult
   'git/log': GitLogResult
   'git/stage': null
@@ -61,6 +64,8 @@ export const HOST_DEFAULTS = {
   totalListingPathBytes: 1024 * 1024,
   /** Per-request cap on stamp-polled directories (loaded/expanded dirs). */
   maxStampDirs: 128,
+  /** Read-cap on a single file's text content (the open-file editor); larger files truncate. */
+  maxReadBytes: 4 * 1024 * 1024,
 } as const
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -79,6 +84,10 @@ export function isExplorerStampRequest(v: unknown): v is ExplorerStampRequest {
   if (!isRecord(v) || !isPath(v.path)) return false
   if (!Array.isArray(v.dirs) || v.dirs.length === 0 || v.dirs.length > HOST_DEFAULTS.maxStampDirs) return false
   return v.dirs.every(isPath)
+}
+
+export function isExplorerReadRequest(v: unknown): v is ExplorerReadRequest {
+  return isRecord(v) && isPath(v.path)
 }
 
 export function isGitStatusRequest(v: unknown): v is GitStatusRequest {

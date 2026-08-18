@@ -2,6 +2,7 @@ import type { SnapshotSelectorHook, TranslateNS } from '@deepseek-ai/dsh-client-
 import type { SessionListState, WorkspaceListState, SettingsScope } from '@deepseek-ai/dsh-client-runtime/client';
 import type { BetterSidebarRpc } from '../rpc-client.ts';
 import type { BetterSidebarSettings } from '../../contract/settings.ts';
+import type { ExplorerEvents } from '../tabs/explorer/events.ts';
 import type { BetterSidebarTabRegistry } from '../tab-registry/contract.ts';
 /** Window event the plugin's global shortcut dispatches to flip the dock. */
 export declare const TOGGLE_EVENT = "better-sidebar:toggle";
@@ -17,6 +18,8 @@ export interface DockRootProps {
     useWorkspaces: SnapshotSelectorHook<WorkspaceListState>;
     rpc: BetterSidebarRpc;
     tabs: BetterSidebarTabRegistry;
+    /** Shared open-file event source (explorer + git); the modal editor consumes it. */
+    events: ExplorerEvents;
     /** Bound plugin settings scope (user-editable via Settings > Plugins); undefined when the seam is absent. */
     settings: SettingsScope<BetterSidebarSettings> | undefined;
     /** Localized shell copy (plugin passes ctx.locale.bind(NS)). */
@@ -24,7 +27,7 @@ export interface DockRootProps {
     /** Details-column panel actions (open/close the sidebar). */
     layout: DockLayoutActions;
 }
-export declare function DockRoot({ useSessions, useWorkspaces, rpc, tabs, settings, t, layout }: DockRootProps): JSX.Element;
+export declare function DockRoot({ useSessions, useWorkspaces, rpc, tabs, events, settings, t, layout }: DockRootProps): JSX.Element;
 /** The details-column entry component (ADR-001): a closure over the injected
  * services that forwards the framework's global props to DockRoot. Lives here
  * (a .tsx module) so the .ts plugin entry never embeds JSX.
@@ -32,6 +35,7 @@ export declare function DockRoot({ useSessions, useWorkspaces, rpc, tabs, settin
 export declare function createDockEntry(services: {
     rpc: BetterSidebarRpc;
     tabs: BetterSidebarTabRegistry;
+    events: ExplorerEvents;
     settings: SettingsScope<BetterSidebarSettings> | undefined;
     t: TranslateNS<'betterSidebar.dock'>;
     layout: DockLayoutActions;

@@ -3,12 +3,13 @@
  * (ADR-002). Hand-rolled type-predicate guards keep the contract
  * dependency-free and usable on both halves.
  */
-import type { ExplorerListRequest, ExplorerListResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts';
+import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts';
 import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitRequest, GitCommitResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts';
 /** Endpoint names (also the wire method segment after the channel). */
 export declare const Endpoints: {
     readonly explorerList: "explorer/list";
     readonly explorerStamp: "explorer/stamp";
+    readonly explorerRead: "explorer/read";
     readonly gitStatus: "git/status";
     readonly gitLog: "git/log";
     readonly gitStage: "git/stage";
@@ -22,6 +23,7 @@ export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints];
 export interface BetterSidebarReqMap {
     'explorer/list': ExplorerListRequest;
     'explorer/stamp': ExplorerStampRequest;
+    'explorer/read': ExplorerReadRequest;
     'git/status': GitStatusRequest;
     'git/log': GitLogRequest;
     'git/stage': GitStageRequest;
@@ -34,6 +36,7 @@ export interface BetterSidebarReqMap {
 export interface BetterSidebarResMap {
     'explorer/list': ExplorerListResult;
     'explorer/stamp': ExplorerStampResult;
+    'explorer/read': ExplorerReadResult;
     'git/status': GitStatusResult;
     'git/log': GitLogResult;
     'git/stage': null;
@@ -56,9 +59,12 @@ export declare const HOST_DEFAULTS: {
     readonly totalListingPathBytes: number;
     /** Per-request cap on stamp-polled directories (loaded/expanded dirs). */
     readonly maxStampDirs: 128;
+    /** Read-cap on a single file's text content (the open-file editor); larger files truncate. */
+    readonly maxReadBytes: number;
 };
 export declare function isExplorerListRequest(v: unknown): v is ExplorerListRequest;
 export declare function isExplorerStampRequest(v: unknown): v is ExplorerStampRequest;
+export declare function isExplorerReadRequest(v: unknown): v is ExplorerReadRequest;
 export declare function isGitStatusRequest(v: unknown): v is GitStatusRequest;
 export declare function isGitCommitDetailRequest(v: unknown): v is GitCommitDetailRequest;
 export declare function isGitStageRequest(v: unknown): v is GitStageRequest;

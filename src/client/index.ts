@@ -102,10 +102,10 @@ export function apply(ctx: ClientContext): void {
     // if it mounts, and a duplicate namespace would throw.
     const disposeCardLocale = ctx.locale.register(CARD_PLUGINS_NS, { zh: cardPluginsZh, en: cardPluginsEn })
 
-    const disposeGitTab = tabs.register(createGitTabDef(ctx, { rpc }))
+    const disposeGitTab = tabs.register(createGitTabDef(ctx, { rpc, emitter: explorer }))
     const disposeExplorerTab = tabs.register(createExplorerTabDef(ctx, { rpc, emitter: explorer }))
 
-    const DockEntry = createDockEntry({ rpc, tabs, settings: scope, t: ctx.locale.bind(DOCK_NS), layout: ctx.layout })
+    const DockEntry = createDockEntry({ rpc, tabs, events: explorer, settings: scope, t: ctx.locale.bind(DOCK_NS), layout: ctx.layout })
     // The dock owns the frame's right 'details' column (declared by ui-layout
     // AppFrame). Priority -1 shadows ui-conversation's DetailsPanel — the
     // sanctioned way to take over a single seat — and inject, not bare

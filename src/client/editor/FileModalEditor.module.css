@@ -1,0 +1,106 @@
+@import '../styles.css';
+
+/* Sidebar-wide file modal (ADR-004). Rendered inside DockContext.Provider but
+   OUTSIDE the tab panels, so it overlays every tab and stays mounted even
+   when the dock is collapsed. The backdrop covers the whole dock region and
+   dims it; the dialog is a centered panel that stops propagation so clicking
+   inside it never closes. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: 70%;
+  background: var(--bsd-bg);
+  border: 1px solid var(--bsd-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--bsd-border);
+  flex: 0 0 auto;
+}
+
+.title {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--bsd-text);
+}
+
+.closeButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--bsd-muted);
+  cursor: pointer;
+}
+
+.closeButton:hover {
+  background: var(--bsd-bg-hover);
+  color: var(--bsd-text);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bsd-bg);
+}
+
+.status {
+  padding: 24px 16px;
+  color: var(--bsd-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.error {
+  padding: 16px;
+  color: var(--bsd-danger);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.content {
+  margin: 0;
+  padding: 12px 16px;
+  font-family: var(--bsd-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bsd-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.truncated {
+  padding: 8px 16px 12px;
+  color: var(--bsd-muted);
+  font-size: 12px;
+}

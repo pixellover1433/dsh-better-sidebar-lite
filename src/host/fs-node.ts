@@ -32,6 +32,7 @@ const caseInsensitive = process.platform === 'win32'
 export const fsNode: FsPort = {
   readdir: (p, opts) => fsPromises.readdir(p, opts),
   stat: (p, opts) => fsPromises.stat(p, opts as StatOptions | undefined) as Promise<import('node:fs').Stats | undefined>,
+  readFile: (p) => fsPromises.readFile(p, 'utf8'),
   readlink: (p) => fsPromises.readlink(p),
   realpath: (p) => fsPromises.realpath(p),
   isAbsolute: (p) => path.isAbsolute(p),

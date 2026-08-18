@@ -23,6 +23,10 @@ export const zh = {
   'refresh': '刷新',
   'empty.title': '暂无面板',
   'loading': '加载中…',
+  'editor.title': '查看文件',
+  'editor.loading': '加载文件内容…',
+  'editor.close': '关闭',
+  'editor.truncated': '（文件较大，内容已截断）',
 } as const
 
 /** Key domain of the dock namespace. */
@@ -39,4 +43,8 @@ export const en: Record<DockKey, string> = {
   'refresh': 'Refresh',
   'empty.title': 'No panels',
   'loading': 'Loading…',
+  'editor.title': 'View file',
+  'editor.loading': 'Loading file contents…',
+  'editor.close': 'Close',
+  'editor.truncated': ' (file is large, contents truncated)',
 }

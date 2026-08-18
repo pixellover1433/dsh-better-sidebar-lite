@@ -28,6 +28,7 @@ import { useBetterSidebarSettings } from '../shared/settings.ts'
 import { GitStatusView } from './status-view.tsx'
 import { GitLogView } from './log-view.tsx'
 import { CommitDetailView } from './commit-detail-view.tsx'
+import type { ExplorerOpenFileEmitter } from '../explorer/events.ts'
 import styles from './git.module.css'
 
 /** Page size used by the initial log request and incremented by "Load more". */
@@ -44,6 +45,8 @@ export const AUTO_REFRESH_DEBOUNCE_MS = 600
 
 export interface GitTabProps {
   rpc: BetterSidebarRpc
+  /** Open-file emitter; status rows open their file through it. */
+  emitter: ExplorerOpenFileEmitter
   /** Bound git-namespace translate. */
   t: (key: GitKey, params?: Record<string, unknown>) => string
 }
@@ -150,7 +153,7 @@ function CommitComposer({ result, root, rpc, t, onCommitted, onActionError }: {
   )
 }
 
-export function GitTab({ rpc, t }: GitTabProps) {
+export function GitTab({ rpc, emitter, t }: GitTabProps) {
   const { useSessions, useWorkspaces, settings } = useDock()
   const sessions = useSessions(s => s)
   const workspaces = useWorkspaces(w => w)
@@ -463,6 +466,7 @@ export function GitTab({ rpc, t }: GitTabProps) {
                 result={statusValue}
                 root={root}
                 rpc={rpc}
+                emitter={emitter}
                 t={t}
                 onChanged={refreshStatus}
                 onActionError={setActionError}

@@ -14,6 +14,7 @@ import type { SidebarError, SidebarResult } from '../../../../src/contract/error
 import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type BetterSidebarResMap } from '../../../../src/contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
 import { AUTO_REFRESH_DEBOUNCE_MS, AUTO_REFRESH_STATUS_INTERVAL_MS, GitTab, type GitTabProps } from '../../../../src/client/tabs/git/git-tab.tsx'
+import { ExplorerOpenFileEmitter, type ExplorerOpenFileEvent } from '../../../../src/client/tabs/explorer/events.ts'
 
 /** Locale stub: render keys verbatim so assertions read the raw key. */
 const t: GitTabProps['t'] = (key) => key
@@ -117,7 +118,7 @@ function mixedStatus(): GitStatusResult {
 
 afterEach(() => cleanup())
 
-function renderGitTab(rpc: BetterSidebarRpc): void {
+function renderGitTab(rpc: BetterSidebarRpc, emitter: ExplorerOpenFileEmitter = new ExplorerOpenFileEmitter()): void {
   const value: DockContextValue = {
     rpc,
     useSessions: fixedHook(SESSIONS),
@@ -126,7 +127,7 @@ function renderGitTab(rpc: BetterSidebarRpc): void {
   }
   render(
     <DockContext.Provider value={value}>
-      <GitTab rpc={rpc} t={t} />
+      <GitTab rpc={rpc} emitter={emitter} t={t} />
     </DockContext.Provider>,
   )
 }
@@ -220,6 +221,42 @@ describe('GitTab', () => {
     expect(screen.getByText('b.txt')).toBeTruthy()
     expect(screen.getByText('c.txt')).toBeTruthy()
     expect(screen.getByText('new/')).toBeTruthy()
+  })
+
+  it('opens a row file on double-click via the shared open-file emitter', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    const opened: ExplorerOpenFileEvent[] = []
+    emitter.onOpenFile(e => opened.push(e))
+    rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: mixedStatus() }))
+    rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: emptyLogResult }))
+    renderGitTab(rpc, emitter)
+    const user = userEvent.setup()
+
+    await screen.findByText('b.txt')
+    await user.dblClick(screen.getByText('b.txt'))
+
+    expect(opened).toHaveLength(1)
+    expect(opened[0]).toMatchObject({ path: '/workspace/repo/b.txt', name: 'b.txt', kind: 'file', source: 'double-click', rootPath: ROOT })
+  })
+
+  it('opens a nested untracked row with the worktree root joined to its repo-relative path', async () => {
+    const rpc = new FakeRpc()
+    const emitter = new ExplorerOpenFileEmitter()
+    const opened: ExplorerOpenFileEvent[] = []
+    emitter.onOpenFile(e => opened.push(e))
+    rpc.setHandler(Endpoints.gitStatus, () => Promise.resolve({ ok: true, value: mixedStatus() }))
+    rpc.setHandler(Endpoints.gitLog, () => Promise.resolve({ ok: true, value: emptyLogResult }))
+    renderGitTab(rpc, emitter)
+    const user = userEvent.setup()
+
+    await screen.findByText('c.txt')
+    await user.dblClick(screen.getByText('c.txt'))
+
+    expect(opened).toHaveLength(1)
+    expect(opened[0]?.path).toBe('/workspace/repo/new/c.txt')
+    expect(opened[0]?.name).toBe('c.txt')
+    expect(opened[0]?.kind).toBe('file')
   })
 
   it('stages a row: calls git/stage with [path] then refetches status', async () => {
@@ -493,7 +530,7 @@ describe('GitTab', () => {
       }
       const { rerender } = render(
         <DockContext.Provider value={value}>
-          <GitTab rpc={rpc} t={t} />
+          <GitTab rpc={rpc} emitter={new ExplorerOpenFileEmitter()} t={t} />
         </DockContext.Provider>,
       )
       await act(async () => { await vi.advanceTimersByTimeAsync(0) })
@@ -507,7 +544,7 @@ describe('GitTab', () => {
       } as unknown as SessionListState
       rerender(
         <DockContext.Provider value={value}>
-          <GitTab rpc={rpc} t={t} />
+          <GitTab rpc={rpc} emitter={new ExplorerOpenFileEmitter()} t={t} />
         </DockContext.Provider>,
       )
       // Debounce has not elapsed yet -> no refresh.

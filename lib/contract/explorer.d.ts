@@ -20,6 +20,19 @@ export interface ExplorerListRequest {
     /** Absolute directory path to list (one level, lazy). */
     path: string;
 }
+/** Request to read a single file's text content (the open-file editor). */
+export interface ExplorerReadRequest {
+    /** Absolute path of the file to read. */
+    path: string;
+}
+export interface ExplorerReadResult {
+    /** Echo of the requested path (identity anchor for stale-response guards). */
+    path: string;
+    /** The file's text content (UTF-8), truncated at the host's read cap when too large. */
+    content: string;
+    /** True when the file exceeded the read cap and `content` was cut short. */
+    truncated: boolean;
+}
 export interface ExplorerListResult {
     /** Echo of the requested path (identity anchor for stale-response guards). */
     path: string;

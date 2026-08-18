@@ -18,6 +18,9 @@ export interface FsPort {
    */
   stat(path: string, opts?: { throwIfNoEntry?: false }): Promise<Stats | undefined>
 
+  /** Read a file's full text content as UTF-8 (rejects on directories). */
+  readFile(path: string): Promise<string>
+
   /** Read a symlink target verbatim; never resolves through further links. */
   readlink(path: string): Promise<string>
 

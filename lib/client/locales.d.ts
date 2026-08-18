@@ -21,6 +21,10 @@ export declare const zh: {
     readonly refresh: "刷新";
     readonly 'empty.title': "暂无面板";
     readonly loading: "加载中…";
+    readonly 'editor.title': "查看文件";
+    readonly 'editor.loading': "加载文件内容…";
+    readonly 'editor.close': "关闭";
+    readonly 'editor.truncated': "（文件较大，内容已截断）";
 };
 /** Key domain of the dock namespace. */
 export type DockKey = keyof typeof zh;

@@ -22,6 +22,8 @@ export interface BetterSidebarConfig {
     maxLogEntries?: number;
     /** git status entry cap. */
     maxStatusEntries?: number;
+    /** Read-cap on one file's text content in bytes (open-file editor); larger files truncate. */
+    maxReadBytes?: number;
     /** untracked reporting mode: 'all' (default) or 'normal'. */
     untrackedFiles?: UntrackedMode;
     /** Basenames hidden by default in explorer listings. */
@@ -36,6 +38,7 @@ export interface ResolvedConfig {
     maxEntriesPerListing: number;
     maxLogEntries: number;
     maxStatusEntries: number;
+    maxReadBytes: number;
     untrackedFiles: UntrackedMode;
     hidePatterns: readonly string[];
     gitExecutable: string;

@@ -1,11 +1,12 @@
 import { describe, expect, it, afterEach, vi } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TabRegistryService } from '../../src/client/tab-registry/service.ts'
 import type { TabDef } from '../../src/client/tab-registry/contract.ts'
 import type { BetterSidebarRpc } from '../../src/client/rpc-client.ts'
 import { DockRoot, TOGGLE_EVENT, DOCK_STORAGE_KEY } from '../../src/client/dock/dock.tsx'
 import type { DockLayoutActions } from '../../src/client/dock/dock.tsx'
+import { ExplorerOpenFileEmitter } from '../../src/client/tabs/explorer/events.ts'
 import { en } from '../../src/client/locales.ts'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -40,7 +41,7 @@ function renderDock(layout: DockLayoutActions) {
   registry.register(fakeTab('a', 10, 'Alpha'))
   registry.register(fakeTab('b', 20, 'Beta'))
   render(
-    <DockRoot useSessions={useSessionsStub as never} useWorkspaces={useWorkspacesStub as never} rpc={stubRpc} tabs={registry} settings={undefined} t={t} layout={layout} />,
+    <DockRoot useSessions={useSessionsStub as never} useWorkspaces={useWorkspacesStub as never} rpc={stubRpc} tabs={registry} events={new ExplorerOpenFileEmitter()} settings={undefined} t={t} layout={layout} />,
   )
   return registry
 }
@@ -123,5 +124,26 @@ describe('DockRoot (details-column occupant)', () => {
     expect(screen.getByTestId('panel-b')).toBeTruthy()
     expect(screen.queryByTestId('panel-a')).toBeNull()
     expect(screen.getByRole('tab', { name: /Beta/ }).getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('renders the open-file modal over the dock when an open-file event fires', async () => {
+    // The modal is mounted once in DockRoot, outside the tab panels, and opens
+    // on an open-file event regardless of the active tab.
+    const emitter = new ExplorerOpenFileEmitter()
+    const registry = new TabRegistryService()
+    registry.register(fakeTab('a', 10, 'Alpha'))
+    const read = vi.fn(async () => ({
+      ok: true as const,
+      value: { path: '/workspace/f.txt', content: 'file body', truncated: false },
+    }))
+    const rpc = { call: read } as unknown as import('../../src/client/rpc-client.ts').BetterSidebarRpc
+    render(
+      <DockRoot useSessions={useSessionsStub as never} useWorkspaces={useWorkspacesStub as never} rpc={rpc} tabs={registry} events={emitter} settings={undefined} t={t} layout={layoutSpy()} />,
+    )
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent(window, new CustomEvent(TOGGLE_EVENT)) // no-op sanity: dialog still independent
+    act(() => emitter.emit({ path: '/workspace/f.txt', name: 'f.txt', kind: 'file', source: 'double-click', rootPath: '/workspace' }))
+    expect(await screen.findByText('file body')).toBeTruthy()
+    expect(screen.getByRole('dialog', { name: 'View file' })).toBeTruthy()
   })
 })

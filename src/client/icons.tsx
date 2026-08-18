@@ -56,3 +56,7 @@ export function CollapseIcon(props: IconProps) {
 export function ExpandIcon(props: IconProps) {
   return <svg {...base(props)}><path d="M5 3.5v9" /><path d="M11 4l-4 4l4 4" /></svg>
 }
+
+export function CloseIcon(props: IconProps) {
+  return <svg {...base(props)}><path d="M4 4l8 8" /><path d="M12 4l-8 8" /></svg>
+}

@@ -11,6 +11,8 @@ import {
   type ExplorerEntry,
   type ExplorerListRequest,
   type ExplorerListResult,
+  type ExplorerReadRequest,
+  type ExplorerReadResult,
   type ExplorerStampRequest,
   type ExplorerStampResult,
   type SidebarError,
@@ -25,6 +27,11 @@ export interface ExplorerOptions {
   hidePatterns: readonly string[]
   /** Absolute roots allowed to be listed. Empty/undefined = any absolute readable dir. */
   allowedRoots?: readonly string[]
+  /**
+   * Read-cap on a single file's text content (open-file editor). Files larger
+   * than this resolve with truncated=true; defaults to the contract default.
+   */
+  maxReadBytes?: number
 }
 
 /** Build a SidebarError branch that carries a path. */
@@ -104,8 +111,8 @@ export class ExplorerService {
     return { path: root, stamps }
   }
 
-  /** Validate the root before any listing (D6 §4.6). */
-  private async assertListableRoot(candidate: string): Promise<string> {
+  /** Validate the path is absolute, within length, and inside the trust fence. */
+  private assertWithinRoots(candidate: string): string {
     if (!this.fs.isAbsolute(candidate)) {
       throw errPath('param-invalid', 'path must be absolute', candidate)
     }
@@ -120,6 +127,12 @@ export class ExplorerService {
         throw errPath('outside-allowed-root', root + ' is outside configured allowed roots', root)
       }
     }
+    return root
+  }
+
+  /** Validate the root before any listing (D6 §4.6); must be a directory. */
+  private async assertListableRoot(candidate: string): Promise<string> {
+    const root = this.assertWithinRoots(candidate)
     let st
     try {
       st = await this.fs.stat(root, { throwIfNoEntry: false })
@@ -133,6 +146,45 @@ export class ExplorerService {
       throw errPath('not-directory', 'expected a directory', root)
     }
     return root
+  }
+
+  /** Validate a path before reading it; must be a file (directories are rejected). */
+  private async assertReadableFile(candidate: string): Promise<string> {
+    const root = this.assertWithinRoots(candidate)
+    let st
+    try {
+      st = await this.fs.stat(root, { throwIfNoEntry: false })
+    } catch (raw) {
+      throw mapFSError(raw, root)
+    }
+    if (st === undefined) {
+      throw errPath('not-found', 'path does not exist', root)
+    }
+    if (!st.isFile()) {
+      throw errPath('not-directory', 'expected a file', root)
+    }
+    return root
+  }
+
+  /**
+   * Read a single file's text content (open-file editor). Validates the path
+   * exactly like list (absolute, within allowedRoots) but requires a file and
+   * rejects directories. Content larger than the read cap is cut at the cap
+   * and marked truncated to bound memory/bandwidth.
+   */
+  async read(request: ExplorerReadRequest): Promise<ExplorerReadResult> {
+    const file = await this.assertReadableFile(request.path)
+    const cap = this.opts.maxReadBytes ?? HOST_DEFAULTS.maxReadBytes
+    let content: string
+    try {
+      content = await this.fs.readFile(file)
+    } catch (raw) {
+      throw mapFSError(raw, file)
+    }
+    if (content.length <= cap) {
+      return { path: file, content, truncated: false }
+    }
+    return { path: file, content: content.slice(0, cap), truncated: true }
   }
 
   private async readDir(root: string): Promise<Dirent[]> {

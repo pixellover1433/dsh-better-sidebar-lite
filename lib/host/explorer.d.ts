@@ -1,4 +1,4 @@
-import { type ExplorerListRequest, type ExplorerListResult, type ExplorerStampRequest, type ExplorerStampResult, type SidebarError } from '../contract/index.ts';
+import { type ExplorerListRequest, type ExplorerListResult, type ExplorerReadRequest, type ExplorerReadResult, type ExplorerStampRequest, type ExplorerStampResult, type SidebarError } from '../contract/index.ts';
 import type { FsPort } from './port-fs.ts';
 /** ExplorerService construction options. */
 export interface ExplorerOptions {
@@ -8,6 +8,11 @@ export interface ExplorerOptions {
     hidePatterns: readonly string[];
     /** Absolute roots allowed to be listed. Empty/undefined = any absolute readable dir. */
     allowedRoots?: readonly string[];
+    /**
+     * Read-cap on a single file's text content (open-file editor). Files larger
+     * than this resolve with truncated=true; defaults to the contract default.
+     */
+    maxReadBytes?: number;
 }
 /** Map a node fs error to a typed SidebarError (D6 §4.7). */
 export declare function mapFSError(raw: unknown, path: string): SidebarError;
@@ -30,8 +35,19 @@ export declare class ExplorerService {
      * whole request like a list would.
      */
     stamp(request: ExplorerStampRequest): Promise<ExplorerStampResult>;
-    /** Validate the root before any listing (D6 §4.6). */
+    /** Validate the path is absolute, within length, and inside the trust fence. */
+    private assertWithinRoots;
+    /** Validate the root before any listing (D6 §4.6); must be a directory. */
     private assertListableRoot;
+    /** Validate a path before reading it; must be a file (directories are rejected). */
+    private assertReadableFile;
+    /**
+     * Read a single file's text content (open-file editor). Validates the path
+     * exactly like list (absolute, within allowedRoots) but requires a file and
+     * rejects directories. Content larger than the read cap is cut at the cap
+     * and marked truncated to bound memory/bandwidth.
+     */
+    read(request: ExplorerReadRequest): Promise<ExplorerReadResult>;
     private readDir;
     /** Map one Dirent to an ExplorerEntry (symlinks reported, never followed). */
     private toEntry;
