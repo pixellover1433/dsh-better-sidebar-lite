@@ -11,11 +11,11 @@ A right-side tabbed sidebar for [DeepSeek Harness](https://github.com/deepseek-a
 - Quick install via NPM:
 
 ```
-dsh plugin add dsh-better-sidebar-lite@v0.0.2-beta.3 --profile web
+dsh plugin add dsh-better-sidebar-lite@v0.0.3-beta.1 --profile web
 ```
 
 (⚠️ v0.0.1-beta.* compatible with deepseek-harness below v0.1.0-rc.7 only)
-(⚠️ v0.0.2-beta.* compatible with deepseek-harness v0.1.0-rc.7 and above only)
+(⚠️ v0.0.2-beta.* and above only compatible with deepseek-harness from version v0.1.0-rc.7)
 
 --- 
 ![Alt text](image/review_1.png)
