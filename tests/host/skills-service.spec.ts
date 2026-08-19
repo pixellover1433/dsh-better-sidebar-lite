@@ -113,11 +113,26 @@ describe('SkillService', () => {
       const error = new Error('boom: missing cwd')
       const registry = { list: async () => { throw error } } as unknown as SkillRegistry
       const service = new SkillService(hostOnly(registry))
-      await expect(service.list({ cwd: '/repo', sessionId: 's9' })).rejects.toBe(error)
+      // The host wraps the raw throw in a `skills/list failed: <detail>` error.
+      await expect(service.list({ cwd: '/repo', sessionId: 's9' })).rejects.toThrow('skills/list failed: boom: missing cwd')
       // The concrete failure is logged (not swallowed) so the root cause is visible.
-      expect(consoleError).toHaveBeenCalledWith(
-        'better-sidebar: skills/list failed (cwd=/repo, sessionId=s9): boom: missing cwd',
-      )
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list threw'))
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('boom: missing cwd'))
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
+  it('wraps a throw from the preset serviceFor as a skills/list failure', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const service = new SkillService({
+        getSkills: () => registryWith([]),
+        getAgents: () => agentsWith({ id: 's2' }),
+        getAgentPresets: () => ({ serviceFor: () => { throw new Error('boom: serviceFor') } }),
+      })
+      await expect(service.list({ cwd: '/repo', sessionId: 's2' })).rejects.toThrow('skills/list failed: boom: serviceFor')
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list threw'))
     } finally {
       consoleError.mockRestore()
     }

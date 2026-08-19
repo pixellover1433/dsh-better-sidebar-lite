@@ -15,24 +15,25 @@ export class SkillService {
   constructor(private readonly deps: SkillServiceDeps) {}
 
   async list(req: SkillListRequest): Promise<SkillListResult> {
-    const live = req.sessionId === undefined ? undefined : this.deps.getAgents()?.get(req.sessionId)
-    const presets = this.deps.getAgentPresets()
-    // Mirror harness api-proxy: the agent's preset may realm-mount its own skill
-    // registry (invisible to host contexts); address it, else the host registry.
-    const scoped = live === undefined ? undefined : (presets?.serviceFor(live, 'skills') as unknown as SkillRegistry | undefined)
-    const registry = scoped ?? this.deps.getSkills()
-    if (!registry) return { skills: [] }
     try {
+      const live = req.sessionId === undefined ? undefined : this.deps.getAgents()?.get(req.sessionId)
+      const presets = this.deps.getAgentPresets()
+      // Scope-merge for the live agent: its preset may realm-mount its own skill
+      // registry (invisible to host contexts), so address that first; else fall
+      // back to the host registry.
+      const scoped = live === undefined ? undefined : (presets?.serviceFor(live, 'skills') as unknown as SkillRegistry | undefined)
+      const registry = scoped ?? this.deps.getSkills()
+      if (!registry) return { skills: [] }
       // The view scope is the live agent (its layer chain merges global +
       // ancestors); cwd is required — skill lookup is cwd-sensitive. list()
-      // already returns all four invocation statuses, so no filtering here.
+      // returns the full catalog (all four invocation statuses, no filtering).
       const scope = live as unknown as ScopeKey | undefined
       const summaries = await registry.list({ cwd: req.cwd, ...(scope === undefined ? {} : { scope }) })
       return { skills: summaries.map(toEntry) }
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error)
-      console.error(`better-sidebar: skills/list failed (cwd=${req.cwd}, sessionId=${req.sessionId ?? 'none'}): ${detail}`)
-      throw error
+      console.error(`better-sidebar: skills/list threw (cwd=${req.cwd}, sessionId=${req.sessionId ?? 'none'}): ${detail}`)
+      throw new Error(`skills/list failed: ${detail}`)
     }
   }
 }

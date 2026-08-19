@@ -3,13 +3,15 @@
  * skill-registry service (ctx.skills) over the skills/list endpoint. The fetch
  * is cwd-scoped (skill lookup is cwd-sensitive, so the active workspace root is
  * sent), and the host merges the reachable harness scopes (global layer + the
- * active agent's layer chain when a session id is present). list() already
- * returns every skill with its invocation status (enabled/disabled/model-only/
- * user-only), so the tab renders the full catalog — it does not filter by
- * invocability. Display-only — each row shows the skill's name, description,
- * and its model/user invocation status derived from the resolved invocation
- * policy. Simpler than the git tab: no auto-refresh polling — a manual refresh
- * and one fetch on mount (or when the active session or workspace changes).
+ * active agent's layer chain when a session id is present). Any domain error
+ * returned by the host (as a value-slot SidebarResult) is logged to the browser
+ * console so a broken tab is diagnosable. list() already returns every skill
+ * with its invocation status (enabled/disabled/model-only/user-only), so the
+ * tab renders the full catalog — it does not filter by invocability.
+ * Display-only — each row shows the skill's name, description, and its
+ * model/user invocation status derived from the resolved invocation policy.
+ * Simpler than the git tab: no auto-refresh polling — a manual refresh and one
+ * fetch on mount (or when the active session or workspace changes).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Endpoints } from '../../../contract/rpc.ts'
@@ -80,7 +82,13 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
       const res = await rpc.call(Endpoints.skillsList, payload, { signal: ctrl.signal })
       if (ctrl.signal.aborted) return
       if (res.ok) setState({ kind: 'loaded', skills: res.value.skills })
-      else setState({ kind: 'error', message: res.error.message })
+      else {
+        // The host surfaced a domain error (value-slot SidebarResult). The client
+        // facade is intentionally silent on these; log here so a broken skills tab
+        // is diagnosable from the browser console.
+        console.error('better-sidebar: skills/list failed', res.error.code, res.error.message)
+        setState({ kind: 'error', message: res.error.message })
+      }
     })()
   }, [rpc, root, sessionId])
 

@@ -7,7 +7,7 @@
  * resolvable root it shows the no-workspace empty state and skips the call).
  * No dsh test-runtime, no Cordis mount.
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
@@ -170,19 +170,27 @@ describe('SkillsTab', () => {
       if (failing) return Promise.resolve({ ok: false, error: { code: 'internal', message: 'boom' } as SidebarError })
       return Promise.resolve({ ok: true, value: { skills: [entry({ name: 'alpha' })] } })
     })
-    renderSkillsTab(rpc)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      renderSkillsTab(rpc)
 
-    await screen.findByText('errorTitle')
-    expect(screen.getByRole('button', { name: 'errorRetry' })).toBeTruthy()
+      await screen.findByText('errorTitle')
+      // The initial (domain-error) load is logged to the browser console with
+      // the surfaced code and message, so a broken tab is diagnosable.
+      expect(consoleError).toHaveBeenCalledWith('better-sidebar: skills/list failed', 'internal', 'boom')
+      expect(screen.getByRole('button', { name: 'errorRetry' })).toBeTruthy()
 
-    failing = false
-    const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'errorRetry' }))
+      failing = false
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('button', { name: 'errorRetry' }))
 
-    await waitFor(() => {
-      expect(screen.queryByText('errorTitle')).toBeNull()
-    })
-    await screen.findByText('alpha')
+      await waitFor(() => {
+        expect(screen.queryByText('errorTitle')).toBeNull()
+      })
+      await screen.findByText('alpha')
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('shows the no-workspace state and skips the call when no root resolves', async () => {
