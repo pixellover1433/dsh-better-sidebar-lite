@@ -11,6 +11,7 @@ export declare const zh: {
     readonly noWorkspaceHint: "技能标签页需要一个工作区目录。请在对话中选择或打开一个工作区。";
     readonly emptyTitle: "没有可用技能";
     readonly emptyHint: "当前没有可用的技能。";
+    readonly warningTitle: "技能加载异常";
     readonly statusEnabled: "已启用";
     readonly statusDisabled: "已禁用";
     readonly statusModelOnly: "仅模型";

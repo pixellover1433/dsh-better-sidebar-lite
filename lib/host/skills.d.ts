@@ -16,5 +16,7 @@ export declare class SkillService {
     private readonly deps;
     constructor(deps: SkillServiceDeps);
     list(req: SkillListRequest): Promise<SkillListResult>;
+    /** Coerce a listing failure into a SUCCESS result whose `warning` is a plain string. */
+    private warn;
 }
 //# sourceMappingURL=skills.d.ts.map
