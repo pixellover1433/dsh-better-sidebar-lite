@@ -23,7 +23,10 @@ export class SkillService {
     const scoped = live === undefined ? undefined : (presets?.serviceFor(live, 'skills') as SkillRegistry | undefined)
     const registry = scoped ?? this.deps.getSkills()
     if (!registry) return { skills: [] }
-    const summaries = await registry.list({ cwd: req.cwd, scope: live as ScopeKey })
+    // Merge the reachable catalog across the scope chain (global + the live
+    // agent's layers) and do NOT narrow by a workspace cwd, so the full
+    // configured catalog is shown regardless of which workspace is open.
+    const summaries = await registry.list(live === undefined ? {} : { scope: live as unknown as ScopeKey })
     return { skills: summaries.map(toEntry) }
   }
 }

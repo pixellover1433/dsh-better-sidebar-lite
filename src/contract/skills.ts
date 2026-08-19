@@ -19,10 +19,9 @@ export interface SkillEntry {
   provider: string
 }
 
+/** The skills catalog merges the reachable harness scopes; no workspace filter.
+ *  An optional session id scopes the merge to that agent's layer chain. */
 export interface SkillListRequest {
-  /** Absolute workspace root (active session cwd or current workspace) to scope discovery. */
-  cwd: string
-  /** Active session id; when present the host resolves the per-agent skill registry. */
   sessionId?: string
 }
 

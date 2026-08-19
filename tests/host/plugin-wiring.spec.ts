@@ -242,7 +242,7 @@ describe('host plugin wiring', () => {
     const handler = connection.captured.handler!;
     // The bare test Context has no skills/agents/presets seams, so the scoped
     // resolution falls through to the host registry, which is also absent.
-    const result = await handler(Endpoints.skillsList, { cwd: dir }, new AbortController().signal);
+    const result = await handler(Endpoints.skillsList, {}, new AbortController().signal);
     expect(result.ok).toBe(true);
     if (result.ok) {
       const envelope = result.value as { ok: boolean; value?: { skills: unknown[] } };
@@ -260,11 +260,20 @@ describe('host plugin wiring', () => {
     if (!result.ok) expect(result.error.code).toBe('bad-request');
   });
 
-  it('rejects a skills/list payload whose cwd is not a string path', async () => {
+  it('rejects a skills/list payload with an unknown cwd key', async () => {
     apply(ctx, {});
     await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
     const handler = connection.captured.handler!;
     const result = await handler(Endpoints.skillsList, { cwd: 123 }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
+
+  it('rejects a skills/list payload with a non-string sessionId', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.skillsList, { sessionId: 5 }, new AbortController().signal);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('bad-request');
   });

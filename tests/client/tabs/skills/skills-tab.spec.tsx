@@ -1,9 +1,9 @@
 /**
  * Skills tab component tests: framework-free — SkillsTab is rendered inside a
  * DockContext.Provider with a stub rpc and stub session/workspace hooks (the
- * skills tab is session+workspace aware: it resolves the active session's
- * cwd and passes it plus the sessionId to skills/list). No dsh test-runtime,
- * no Cordis mount.
+ * skills tab is session-aware: it passes the active sessionId to skills/list so
+ * the host merges the reachable harness scopes; it never sends a workspace cwd).
+ * No dsh test-runtime, no Cordis mount.
  */
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
@@ -143,11 +143,11 @@ describe('SkillsTab', () => {
     expect(screen.getByText('statusDisabled')).toBeTruthy()
     expect(screen.getByText('statusModelOnly')).toBeTruthy()
     expect(screen.getByText('statusUserOnly')).toBeTruthy()
-    // The request carries the resolved root + active session id.
+    // The request carries the active session id (workspace cwd is never sent).
     await waitFor(() => {
       const call = rpc.calls.find(c => c.endpoint === Endpoints.skillsList)
       expect(call).toBeTruthy()
-      expect(call?.payload).toEqual({ cwd: ROOT, sessionId: 's1' })
+      expect(call?.payload).toEqual({ sessionId: 's1' })
     })
   })
 
@@ -182,13 +182,18 @@ describe('SkillsTab', () => {
     await screen.findByText('alpha')
   })
 
-  it('shows the no-workspace state and does not call rpc without a root', async () => {
+  it('still fetches the catalog when no active session resolves', async () => {
     const rpc = new FakeRpc()
+    rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({ ok: true, value: { skills: [entry({ name: 'alpha' })] } }))
     renderSkillsTab(rpc, { sessions: NO_SESSIONS })
 
-    await screen.findByText('noWorkspace')
-    expect(screen.getByText('noWorkspaceHint')).toBeTruthy()
-    expect(rpc.calls.find(c => c.endpoint === Endpoints.skillsList)).toBeUndefined()
+    await screen.findByText('alpha')
+    // No session id -> the request omits it (payload {}), but still fetches.
+    await waitFor(() => {
+      const call = rpc.calls.find(c => c.endpoint === Endpoints.skillsList)
+      expect(call).toBeTruthy()
+      expect(call?.payload).toEqual({})
+    })
   })
 
   it('skillStatus derives the four statuses from the invocation policy', () => {

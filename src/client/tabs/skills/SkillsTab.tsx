@@ -1,20 +1,19 @@
 /**
- * Skills tab panel: lists the harness's available agent "skills" by reading
- * the host skill-registry service (ctx.skills) over the skills/list endpoint,
- * resolved against the active session's per-agent registry when one is set
- * (the harness mounts skill providers per agent preset, so an unscoped read
- * would miss them). Display-only — each row shows the skill's name,
- * description, and its model/user invocation status derived from the resolved
- * invocation policy. Simpler than the git tab: no auto-refresh polling — a
- * manual refresh and one fetch on mount (or when the workspace/session
- * changes), plus a no-workspace empty state.
+ * Skills tab panel: shows the FULL harness skill catalog by reading the host
+ * skill-registry service (ctx.skills) over the skills/list endpoint. The host
+ * merges the reachable harness scopes (global layer + the active agent's layer
+ * chain when a session id is present) and does NOT narrow by workspace cwd, so
+ * every configured skill (bundled/user/custom roots) appears regardless of the
+ * open workspace. Display-only — each row shows the skill's name, description,
+ * and its model/user invocation status derived from the resolved invocation
+ * policy. Simpler than the git tab: no auto-refresh polling — a manual refresh
+ * and one fetch on mount (or when the active session changes).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { SkillEntry, SkillListRequest } from '../../../contract/skills.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
 import { useDock } from '../../dock/context.ts'
-import { resolveRoot } from '../../workspace-root.ts'
 import { RefreshIcon, SkillsIcon } from '../../icons.tsx'
 import type { SkillsKey } from './locales.ts'
 import styles from './skills.module.css'
@@ -43,18 +42,15 @@ const STATUS_KEY: Record<SkillsStatus, SkillsKey> = {
   userOnly: 'statusUserOnly',
 }
 
-/** Fetch state: loading, no workspace, a surfaced error, or the loaded catalog. */
+/** Fetch state: loading, a surfaced error, or the loaded catalog. */
 type SkillsState =
   | { kind: 'loading' }
-  | { kind: 'noWorkspace' }
   | { kind: 'error'; message: string }
   | { kind: 'loaded'; skills: SkillEntry[] }
 
 export function SkillsTab({ rpc, t }: SkillsTabProps) {
-  const { useSessions, useWorkspaces } = useDock()
+  const { useSessions } = useDock()
   const sessions = useSessions(s => s)
-  const workspaces = useWorkspaces(w => w)
-  const root = resolveRoot(sessions, workspaces)
   const sessionId = sessions.current
 
   const [state, setState] = useState<SkillsState>({ kind: 'loading' })
@@ -63,24 +59,20 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
   /** Fetch the catalog, superseding any in-flight request. */
   const refresh = useCallback(() => {
     controllerRef.current?.abort()
-    if (root === undefined) {
-      setState({ kind: 'noWorkspace' })
-      return
-    }
     const ctrl = new AbortController()
     controllerRef.current = ctrl
     setState({ kind: 'loading' })
     void (async () => {
-      // SessionId may be undefined when no active session resolves (a
-      // workspace-from-list root); omit it rather than send an explicit
-      // undefined, which exactOptionalPropertyTypes forbids on the contract.
-      const payload: SkillListRequest = { cwd: root, ...(sessionId === undefined ? {} : { sessionId }) }
+      // SessionId may be undefined when no active session resolves; omit it
+      // rather than send an explicit undefined, which exactOptionalPropertyTypes
+      // forbids on the contract. The catalog is fetched regardless of workspace.
+      const payload: SkillListRequest = sessionId === undefined ? {} : { sessionId }
       const res = await rpc.call(Endpoints.skillsList, payload, { signal: ctrl.signal })
       if (ctrl.signal.aborted) return
       if (res.ok) setState({ kind: 'loaded', skills: res.value.skills })
       else setState({ kind: 'error', message: res.error.message })
     })()
-  }, [rpc, root, sessionId])
+  }, [rpc, sessionId])
 
   // Fetch on mount; abort a still-in-flight request on unmount.
   useEffect(() => {
@@ -100,12 +92,6 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
         </button>
       </div>
       <div className={styles.body}>
-        {state.kind === 'noWorkspace' && (
-          <div className={styles.state}>
-            <div className={styles.stateTitle}>{t('noWorkspace')}</div>
-            <div className={styles.stateHint}>{t('noWorkspaceHint')}</div>
-          </div>
-        )}
         {state.kind === 'loading' && <div className={styles.loading}>{t('loading')}</div>}
         {state.kind === 'error' && (
           <div className={styles.state}>
