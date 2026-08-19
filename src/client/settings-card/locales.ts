@@ -29,7 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** English copy (card-chrome strings mirror ui-settings-plugins verbatim). */
 export const en: Record<BetterSidebarPluginsLocaleKey, string> = {
-  cardTitle: 'Better Sidebar',
+  cardTitle: 'Better Sidebar Lite',
   cardDescription: 'Auto-refresh cadence for the explorer and git tabs.',
   overridden: 'Overridden',
   reset: 'Reset to default',
@@ -57,7 +57,7 @@ export const en: Record<BetterSidebarPluginsLocaleKey, string> = {
 
 /** Simplified Chinese copy. */
 export const zh: Record<BetterSidebarPluginsLocaleKey, string> = {
-  cardTitle: 'Better Sidebar',
+  cardTitle: 'Better Sidebar Lite',
   cardDescription: '资源管理器与 Git 标签页的自动刷新节奏。',
   overridden: '已覆盖',
   reset: '恢复默认',
