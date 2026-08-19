@@ -15,17 +15,17 @@ export const SETTINGS_NAMESPACE = 'dsh-better-sidebar' as const
 /** Defaults shared by the host schema and the client baseline. */
 export const SETTINGS_DEFAULTS = {
   /** Explorer fallback stamp-poll cadence in ms (ADR-004 §3 amendment). */
-  explorerPollMs: 100,
+  explorerPollMs: 1000,
   /** Explorer session-dirty debounce in ms. */
   explorerDebounceMs: 600,
   /** Git fallback status-poll cadence in ms (git tab auto-refresh). */
-  gitPollMs: 100,
+  gitPollMs: 1000,
   /** Git session-dirty debounce in ms. */
   gitDebounceMs: 600,
   /** Per-git-command timeout in ms (mirrors the legacy cordis `gitTimeoutMs`). */
   gitTimeoutMs: 15_000,
   /** Skills-tab fallback poll cadence in ms. */
-  skillsPollMs: 100,
+  skillsPollMs: 1000,
 } as const
 
 /** The plugin's settings section as the browser reads/reacts to it. */
