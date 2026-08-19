@@ -1,12 +1,20 @@
 import type { SkillRegistry } from '@deepseek-ai/dsh-skill';
-import type { SkillListResult } from '../contract/index.ts';
+import type { SkillListRequest, SkillListResult } from '../contract/index.ts';
 export interface SkillServiceDeps {
     /** Lazily resolved harness skill registry; undefined when the seam is not composed. */
-    getRegistry: () => SkillRegistry | undefined;
+    getSkills: () => SkillRegistry | undefined;
+    /** Lazy harness agent registry; typed structurally to avoid extra runtime deps. */
+    getAgents: () => {
+        get(id: string): unknown;
+    } | undefined;
+    /** Lazy harness agent-presets registry; structurally typed. */
+    getAgentPresets: () => {
+        serviceFor(agent: unknown, name: string): unknown;
+    } | undefined;
 }
 export declare class SkillService {
     private readonly deps;
     constructor(deps: SkillServiceDeps);
-    list(): Promise<SkillListResult>;
+    list(req: SkillListRequest): Promise<SkillListResult>;
 }
 //# sourceMappingURL=skills.d.ts.map

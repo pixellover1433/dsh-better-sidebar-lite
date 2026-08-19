@@ -7,6 +7,8 @@ export declare const zh: {
     readonly loading: "加载中…";
     readonly errorRetry: "重试";
     readonly errorTitle: "加载失败";
+    readonly noWorkspace: "未打开工作区";
+    readonly noWorkspaceHint: "技能标签页需要一个工作区目录。请在对话中选择或打开一个工作区。";
     readonly emptyTitle: "没有可用技能";
     readonly emptyHint: "当前没有可用的技能。";
     readonly statusEnabled: "已启用";
