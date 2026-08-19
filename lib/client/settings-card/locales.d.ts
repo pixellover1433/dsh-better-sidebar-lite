@@ -8,7 +8,7 @@
  */
 export declare const NS: "betterSidebar.plugins";
 /** Locale keys the settings card renders. */
-export type BetterSidebarPluginsLocaleKey = 'cardTitle' | 'cardDescription' | 'overridden' | 'reset' | 'readOnly' | 'expand' | 'collapse' | 'save' | 'saving' | 'discard' | 'unsaved' | 'saveFailed' | 'invalidNumber' | 'invalidRange' | 'explorerPollMs' | 'explorerPollMsHint' | 'explorerDebounceMs' | 'explorerDebounceMsHint' | 'gitPollMs' | 'gitPollMsHint' | 'gitDebounceMs' | 'gitDebounceMsHint';
+export type BetterSidebarPluginsLocaleKey = 'cardTitle' | 'cardDescription' | 'overridden' | 'reset' | 'readOnly' | 'expand' | 'collapse' | 'save' | 'saving' | 'discard' | 'unsaved' | 'saveFailed' | 'invalidNumber' | 'invalidRange' | 'explorerPollMs' | 'explorerPollMsHint' | 'explorerDebounceMs' | 'explorerDebounceMsHint' | 'gitPollMs' | 'gitPollMsHint' | 'gitDebounceMs' | 'gitDebounceMsHint' | 'skillsPollMs' | 'skillsPollMsHint';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         /** This plugin's settings-card namespace (Settings > Plugins). */

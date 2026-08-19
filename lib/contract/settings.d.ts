@@ -13,15 +13,17 @@ export declare const SETTINGS_NAMESPACE: "dsh-better-sidebar";
 /** Defaults shared by the host schema and the client baseline. */
 export declare const SETTINGS_DEFAULTS: {
     /** Explorer fallback stamp-poll cadence in ms (ADR-004 §3 amendment). */
-    readonly explorerPollMs: 8000;
+    readonly explorerPollMs: 100;
     /** Explorer session-dirty debounce in ms. */
     readonly explorerDebounceMs: 600;
     /** Git fallback status-poll cadence in ms (git tab auto-refresh). */
-    readonly gitPollMs: 8000;
+    readonly gitPollMs: 100;
     /** Git session-dirty debounce in ms. */
     readonly gitDebounceMs: 600;
     /** Per-git-command timeout in ms (mirrors the legacy cordis `gitTimeoutMs`). */
     readonly gitTimeoutMs: 15000;
+    /** Skills-tab fallback poll cadence in ms. */
+    readonly skillsPollMs: 100;
 };
 /** The plugin's settings section as the browser reads/reacts to it. */
 export interface BetterSidebarSettings {
@@ -35,6 +37,8 @@ export interface BetterSidebarSettings {
     gitDebounceMs: number;
     /** Per-git-command timeout in ms. */
     gitTimeoutMs: number;
+    /** Skills-tab fallback poll cadence in ms. */
+    skillsPollMs: number;
 }
 /** Last-seen defaults for callers that keep their own copy of one field. */
 export declare const SETTING_FIELDS: readonly (keyof BetterSidebarSettings)[];

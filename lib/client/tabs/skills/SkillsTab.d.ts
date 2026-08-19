@@ -1,10 +1,6 @@
 import type { SkillEntry } from '../../../contract/skills.ts';
 import type { BetterSidebarRpc } from '../../rpc-client.ts';
 import type { SkillsKey } from './locales.ts';
-/** Fallback auto-refresh cadence. Skills may be injected into the session after
- *  the tab mounts, so we re-poll on an interval (silent) instead of relying on
- *  the single mount fetch. */
-export declare const SKILLS_POLL_MS = 5000;
 export interface SkillsTabProps {
     rpc: BetterSidebarRpc;
     /** Bound skills-namespace translate. */
