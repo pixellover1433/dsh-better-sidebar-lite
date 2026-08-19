@@ -17,7 +17,8 @@ import type { SidebarError, SidebarResult } from '../../../../src/contract/error
 import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type BetterSidebarResMap } from '../../../../src/contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
 import { DockContext, type DockContextValue } from '../../../../src/client/dock/context.ts'
-import { skillStatus, SkillsTab, SKILLS_POLL_MS, type SkillsTabProps } from '../../../../src/client/tabs/skills/SkillsTab.tsx'
+import { skillStatus, SkillsTab, type SkillsTabProps } from '../../../../src/client/tabs/skills/SkillsTab.tsx'
+import { SETTINGS_DEFAULTS } from '../../../../src/contract/settings.ts'
 
 /** Locale stub: render keys verbatim so assertions read the raw key. */
 const t: SkillsTabProps['t'] = (key) => key
@@ -247,7 +248,7 @@ describe('SkillsTab', () => {
 
       // A full cadence elapses: the poll re-fetches the same payload (silent),
       // and the already-loaded list stays rendered — no loading spinner.
-      act(() => { vi.advanceTimersByTime(SKILLS_POLL_MS) })
+      act(() => { vi.advanceTimersByTime(SETTINGS_DEFAULTS.skillsPollMs) })
       await act(async () => {})
 
       const calls = rpc.calls.filter(c => c.endpoint === Endpoints.skillsList)

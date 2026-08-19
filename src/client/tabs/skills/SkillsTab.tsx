@@ -26,12 +26,8 @@ import { useDock } from '../../dock/context.ts'
 import { resolveRoot } from '../../workspace-root.ts'
 import { RefreshIcon, SkillsIcon } from '../../icons.tsx'
 import type { SkillsKey } from './locales.ts'
+import { useBetterSidebarSettings } from '../shared/settings.ts'
 import styles from './skills.module.css'
-
-/** Fallback auto-refresh cadence. Skills may be injected into the session after
- *  the tab mounts, so we re-poll on an interval (silent) instead of relying on
- *  the single mount fetch. */
-export const SKILLS_POLL_MS = 5000
 
 export interface SkillsTabProps {
   rpc: BetterSidebarRpc
@@ -65,11 +61,12 @@ type SkillsState =
   | { kind: 'noWorkspace' }
 
 export function SkillsTab({ rpc, t }: SkillsTabProps) {
-  const { useSessions, useWorkspaces } = useDock()
+  const { useSessions, useWorkspaces, settings } = useDock()
   const sessions = useSessions(s => s)
   const workspaces = useWorkspaces(w => w)
   const root = resolveRoot(sessions, workspaces)
   const sessionId = sessions.current
+  const { skillsPollMs } = useBetterSidebarSettings(settings)
 
   const [state, setState] = useState<SkillsState>({ kind: 'loading' })
   const controllerRef = useRef<AbortController | null>(null)
@@ -118,16 +115,17 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
    * Fallback poll: catches skills injected into the session after mount by
    * re-fetching silently so the already-loaded list is never blanked. Runs only
    * while this tab is mounted, skips hidden documents, and supersedes any
-   * in-flight request (fetchCatalog aborts it).
+   * in-flight request (fetchCatalog aborts it). The cadence comes from the
+   * plugin settings (Skills tab auto-refresh), defaulting to 100ms.
    */
   useEffect(() => {
     if (root === undefined) return
     const id = window.setInterval(() => {
       if (document.hidden) return
       void fetchCatalog({ silent: true })
-    }, SKILLS_POLL_MS)
+    }, skillsPollMs)
     return () => window.clearInterval(id)
-  }, [root, fetchCatalog])
+  }, [root, fetchCatalog, skillsPollMs])
 
   return (
     <div className={styles.panel}>

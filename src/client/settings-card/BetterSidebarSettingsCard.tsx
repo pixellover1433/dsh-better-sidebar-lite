@@ -45,6 +45,7 @@ const FIELD_COPY: ReadonlyArray<{
   { field: 'explorerDebounceMs', labelKey: 'explorerDebounceMs', hintKey: 'explorerDebounceMsHint' },
   { field: 'gitPollMs', labelKey: 'gitPollMs', hintKey: 'gitPollMsHint' },
   { field: 'gitDebounceMs', labelKey: 'gitDebounceMs', hintKey: 'gitDebounceMsHint' },
+  { field: 'skillsPollMs', labelKey: 'skillsPollMs', hintKey: 'skillsPollMsHint' },
 ]
 
 /** Build the invalid-value message stating the field's allowed range. */

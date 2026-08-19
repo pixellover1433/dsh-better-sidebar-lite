@@ -18,6 +18,7 @@ export type BetterSidebarPluginsLocaleKey =
   | 'explorerDebounceMs' | 'explorerDebounceMsHint'
   | 'gitPollMs' | 'gitPollMsHint'
   | 'gitDebounceMs' | 'gitDebounceMsHint'
+  | 'skillsPollMs' | 'skillsPollMsHint'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap {
@@ -50,6 +51,8 @@ export const en: Record<BetterSidebarPluginsLocaleKey, string> = {
   gitPollMsHint: 'How often the git tab re-checks the working tree.',
   gitDebounceMs: 'Git refresh debounce (ms)',
   gitDebounceMsHint: 'How long to wait after agent activity before refreshing git status.',
+  skillsPollMs: 'Skills refresh poll (ms)',
+  skillsPollMsHint: 'How often the skills tab re-checks the catalog.',
 }
 
 /** Simplified Chinese copy. */
@@ -76,4 +79,6 @@ export const zh: Record<BetterSidebarPluginsLocaleKey, string> = {
   gitPollMsHint: 'Git 标签页多久重新检查一次工作区。',
   gitDebounceMs: 'Git 刷新防抖（毫秒）',
   gitDebounceMsHint: 'agent 活动后等待多久再刷新 Git 状态。',
+  skillsPollMs: '技能刷新轮询（毫秒）',
+  skillsPollMsHint: 'Skills 标签页多久重新检查一次技能目录。',
 }

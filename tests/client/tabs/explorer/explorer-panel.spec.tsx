@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { SessionListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceListState, WorkspaceView, WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ExplorerListRequest, ExplorerListResult, ExplorerEntry, ExplorerStampRequest } from '../../../../src/contract/explorer.ts'
@@ -11,6 +11,7 @@ import { DockContext, type DockContextValue } from '../../../../src/client/dock/
 import { ExplorerPanel, AUTO_REFRESH_EXPLORER_DEBOUNCE_MS, AUTO_REFRESH_EXPLORER_INTERVAL_MS } from '../../../../src/client/tabs/explorer/ExplorerPanel.tsx'
 import { en } from '../../../../src/client/tabs/explorer/locales.ts'
 import { ExplorerOpenFileEmitter } from '../../../../src/client/tabs/explorer/events.ts'
+import { SETTINGS_DEFAULTS, type BetterSidebarSettings } from '../../../../src/contract/settings.ts'
 
 afterEach(() => { cleanup() })
 
@@ -219,6 +220,27 @@ function activeSession(updatedAt: number): SessionListState {
   } as unknown as SessionListState
 }
 
+/** Bound settings scope double serving overrides over the contract defaults.
+ *  Returns a STABLE snapshot so useSyncExternalStore never sees identity churn. */
+function fakeSettingsScope(overrides: Partial<BetterSidebarSettings> = {}): SettingsScope<BetterSidebarSettings> {
+  const value: BetterSidebarSettings = { ...SETTINGS_DEFAULTS, ...overrides }
+  const snapshot: SettingsScopeSnapshot<BetterSidebarSettings> = {
+    status: 'ready',
+    value,
+    base: SETTINGS_DEFAULTS,
+    user: {},
+    revision: 0,
+    writable: true,
+    mode: 'host',
+  }
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+    set: async () => {},
+    unset: async () => {},
+  }
+}
+
 describe('ExplorerPanel auto-refresh (ADR-004 §3 amendment)', () => {
   afterEach(() => { vi.useRealTimers() })
 
@@ -262,7 +284,9 @@ describe('ExplorerPanel auto-refresh (ADR-004 §3 amendment)', () => {
       rpc,
       useSessions: ((sel) => sel(sessionsRef.value)) as SnapshotSelectorHook<SessionListState>,
       useWorkspaces: ((sel) => sel(singleWorkspace('/r'))) as SnapshotSelectorHook<WorkspaceListState>,
-      settings: undefined,
+      // A far-out fallback poll isolates the dirty-signal debounce: the poll
+      // must not fire while the debounce window is still open.
+      settings: fakeSettingsScope({ explorerPollMs: 8000 }),
     }
     // Fresh element per render: React bails out when the exact same element
     // reference is re-rendered, which would skip the dirty-signal effect.

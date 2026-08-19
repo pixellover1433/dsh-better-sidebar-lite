@@ -41,6 +41,7 @@ export const BetterSidebarSettingsSchema: z<BetterSidebarSettings> = z.object({
   gitPollMs: naturalField('gitPollMs'),
   gitDebounceMs: naturalField('gitDebounceMs'),
   gitTimeoutMs: naturalField('gitTimeoutMs'),
+  skillsPollMs: naturalField('skillsPollMs'),
 })
 
 /**

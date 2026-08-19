@@ -6,14 +6,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, WorkspaceListState, SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import { DockContext, type DockContextValue } from '../../../../src/client/dock/context.ts'
 import type { GitLogResult, GitStatusEntry, GitStatusResult } from '../../../../src/contract/git.ts'
 import type { SidebarError, SidebarResult } from '../../../../src/contract/errors.ts'
 import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type BetterSidebarResMap } from '../../../../src/contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
-import { AUTO_REFRESH_DEBOUNCE_MS, AUTO_REFRESH_STATUS_INTERVAL_MS, GitTab, type GitTabProps } from '../../../../src/client/tabs/git/git-tab.tsx'
+import { AUTO_REFRESH_DEBOUNCE_MS, GitTab, type GitTabProps } from '../../../../src/client/tabs/git/git-tab.tsx'
+import { SETTINGS_DEFAULTS, type BetterSidebarSettings } from '../../../../src/contract/settings.ts'
 import { ExplorerOpenFileEmitter, type ExplorerOpenFileEvent } from '../../../../src/client/tabs/explorer/events.ts'
 
 /** Locale stub: render keys verbatim so assertions read the raw key. */
@@ -44,6 +45,27 @@ const WORKSPACES = {
 /** Build a SnapshotSelectorHook stub that returns a fixed state for any selector. */
 function fixedHook<V>(value: V): SnapshotSelectorHook<V> {
   return ((sel: (s: V) => unknown) => sel(value)) as SnapshotSelectorHook<V>
+}
+
+/** Bound settings scope double serving overrides over the contract defaults.
+ *  Returns a STABLE snapshot so useSyncExternalStore never sees identity churn. */
+function fakeSettingsScope(overrides: Partial<BetterSidebarSettings> = {}): SettingsScope<BetterSidebarSettings> {
+  const value: BetterSidebarSettings = { ...SETTINGS_DEFAULTS, ...overrides }
+  const snapshot: SettingsScopeSnapshot<BetterSidebarSettings> = {
+    status: 'ready',
+    value,
+    base: SETTINGS_DEFAULTS,
+    user: {},
+    revision: 0,
+    writable: true,
+    mode: 'host',
+  }
+  return {
+    getSnapshot: () => snapshot,
+    subscribe: () => () => {},
+    set: async () => {},
+    unset: async () => {},
+  }
 }
 
 function entry(overrides: Partial<GitStatusEntry> & { path: string }): GitStatusEntry {
@@ -558,7 +580,7 @@ describe('GitTab', () => {
       expect(logCount(rpc)).toBe(1)
 
       // One poll tick later the status is refetched...
-      await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_REFRESH_STATUS_INTERVAL_MS) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(SETTINGS_DEFAULTS.gitPollMs) })
       await act(async () => {})
       expect(statusCount(rpc)).toBe(2)
       // ...but the unchanged status does not drag the log along.
@@ -577,7 +599,7 @@ describe('GitTab', () => {
 
       // The tree becomes clean between polls (e.g. an external commit).
       clean = true
-      await act(async () => { await vi.advanceTimersByTimeAsync(AUTO_REFRESH_STATUS_INTERVAL_MS) })
+      await act(async () => { await vi.advanceTimersByTimeAsync(SETTINGS_DEFAULTS.gitPollMs) })
       await act(async () => {})
       expect(logCount(rpc)).toBe(2)
     })
@@ -593,7 +615,9 @@ describe('GitTab', () => {
         rpc,
         useSessions: ((sel: (s: SessionListState) => unknown) => sel(sessionsRef.value)) as SnapshotSelectorHook<SessionListState>,
         useWorkspaces: fixedHook(WORKSPACES),
-        settings: undefined,
+        // A far-out fallback poll isolates the dirty-signal debounce: the poll
+        // must not fire while the debounce window is still open.
+        settings: fakeSettingsScope({ gitPollMs: 8000 }),
       }
       const { rerender } = render(
         <DockContext.Provider value={value}>

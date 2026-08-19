@@ -71,6 +71,7 @@ describe('BetterSidebarSettingsCard', () => {
     fireEvent.click(screen.getByRole('button', { name: `Show settings: ${en.cardTitle}` }))
     expect(screen.getByLabelText(en.explorerPollMs)).toBeTruthy()
     expect(screen.getByLabelText(en.gitPollMs)).toBeTruthy()
+    expect(screen.getByLabelText(en.skillsPollMs)).toBeTruthy()
     // The overridden field shows its badge + reset; the non-overridden one does not.
     expect(screen.getByText(en.overridden)).toBeTruthy()
     expect(screen.getByText(en.reset)).toBeTruthy()

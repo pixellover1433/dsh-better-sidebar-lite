@@ -18,6 +18,7 @@ function makeScope(initial: Partial<BetterSidebarSettings>) {
     gitPollMs: 8000,
     gitDebounceMs: 600,
     gitTimeoutMs: 15000,
+    skillsPollMs: 100,
   }
   let resolved: BetterSidebarSettings = { ...defaults, ...initial }
   let user: Record<string, unknown> | undefined = Object.keys(initial).length ? { ...initial } : undefined

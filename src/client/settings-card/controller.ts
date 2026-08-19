@@ -21,6 +21,7 @@ export const CARD_FIELDS: readonly (keyof BetterSidebarSettings)[] = [
   'explorerDebounceMs',
   'gitPollMs',
   'gitDebounceMs',
+  'skillsPollMs',
 ]
 
 /** One field as the card's control renders it. */
