@@ -61,7 +61,8 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
   const skills = new SkillService({
     getSkills: () => ctx.get('skills') as SkillRegistry | undefined,
     getAgents: () => ctx.get('agents') as ({ get(id: string): unknown } | undefined),
-    getAgentPresets: () => ctx.get('agentPresets') as ({ serviceFor(agent: unknown, name: string): unknown } | undefined),
+    getSession: (sessionId: string) => ctx.get('sessions')?.get(sessionId),
+    getAgentPresets: () => ctx.get('agentPresets') as ({ serviceFor(agent: unknown, name: string): unknown; standingKeyFor(id?: string): Promise<unknown> | unknown } | undefined),
   })
   const handler = createChannelHandler({ explorer, git, skills })
 

@@ -17,14 +17,22 @@ function agentsWith(agent: unknown): { get(id: string): unknown } {
   return { get: () => agent }
 }
 
-/** Structural harness agent-presets fake. */
-function presetsWith(registry: unknown): { serviceFor: (a: unknown, n: string) => unknown } {
-  return { serviceFor: () => registry }
+/** Structural harness agent-presets fake; standingKeyFor defaults to a no-op. */
+function presetsWith(
+  registry: unknown,
+  standingKeyFor?: (id?: string) => Promise<unknown> | unknown,
+): { serviceFor: (a: unknown, n: string) => unknown; standingKeyFor: (id?: string) => Promise<unknown> | unknown } {
+  return { serviceFor: () => registry, standingKeyFor: standingKeyFor ?? (async () => undefined) }
+}
+
+/** A cold session whose header names 'my-preset' and whose log has no selection. */
+function sessionStub(): { header: { agentPreset: string }; events: [] } {
+  return { header: { agentPreset: 'my-preset' }, events: [] }
 }
 
 /** Deps that only compose the host-level skill registry (no agents/presets). */
 function hostOnly(registry: SkillRegistry | undefined): ConstructorParameters<typeof SkillService>[0] {
-  return { getSkills: () => registry, getAgents: () => undefined, getAgentPresets: () => undefined }
+  return { getSkills: () => registry, getAgents: () => undefined, getSession: () => undefined, getAgentPresets: () => undefined }
 }
 
 describe('SkillService', () => {
@@ -92,6 +100,7 @@ describe('SkillService', () => {
     const service = new SkillService({
       getSkills: () => registryWith([]),
       getAgents: () => agentsWith(agent),
+      getSession: () => undefined,
       getAgentPresets: () => presetsWith(scopedRegistry),
     })
     const res = await service.list({ cwd: '/repo', sessionId: 's1' })
@@ -102,11 +111,50 @@ describe('SkillService', () => {
     expect(res.skills[0]?.name).toBe('scoped')
   })
 
+  it('uses the session preset standing key as the view scope when there is no live agent', async () => {
+    const hostList = vi.fn(async () => [summary({ name: 'host' })])
+    const standingKeyFor = vi.fn(async (id?: string) => ({ kind: 'standing', preset: id }))
+    const service = new SkillService({
+      getSkills: () => ({ list: hostList }) as unknown as SkillRegistry,
+      getAgents: () => undefined,
+      getSession: sessionStub,
+      getAgentPresets: () => presetsWith(undefined, standingKeyFor),
+    })
+    // No live agent -> the host registry is addressed, scoped to the session
+    // preset's STANDING key, so a fresh session still lists its full catalog.
+    const res = await service.list({ cwd: '/repo', sessionId: 's1' })
+    expect(standingKeyFor).toHaveBeenCalledWith('my-preset')
+    expect(hostList).toHaveBeenCalledWith({ cwd: '/repo', scope: { kind: 'standing', preset: 'my-preset' } })
+    expect(res.skills[0]?.name).toBe('host')
+  })
+
+  it('degrades a standingKeyFor rejection to the host-global scope, not an error', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const hostList = vi.fn(async () => [summary({ name: 'host' })])
+      const service = new SkillService({
+        getSkills: () => ({ list: hostList }) as unknown as SkillRegistry,
+        getAgents: () => undefined,
+        getSession: sessionStub,
+        getAgentPresets: () => presetsWith(undefined, async () => { throw new Error('boom: presets') }),
+      })
+      // A broken/unusable preset must degrade this read to the global scope,
+      // never fail the listing.
+      const res = await service.list({ cwd: '/repo', sessionId: 's1' })
+      expect(hostList).toHaveBeenCalledWith({ cwd: '/repo' })
+      expect(res.skills[0]?.name).toBe('host')
+      expect(res.warning).toBeUndefined()
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it('falls back to the host registry when a sessionId matches no live agent', async () => {
     const hostList = vi.fn(async () => [summary({ name: 'host' })])
     const service = new SkillService({
       getSkills: () => ({ list: hostList }) as unknown as SkillRegistry,
       getAgents: () => agentsWith(undefined),
+      getSession: () => undefined,
       getAgentPresets: () => presetsWith(undefined),
     })
     const res = await service.list({ cwd: '/repo', sessionId: 'missing' })
@@ -142,6 +190,7 @@ describe('SkillService', () => {
       const service = new SkillService({
         getSkills: () => registryWith([]),
         getAgents: () => agentsWith({ id: 's2' }),
+        getSession: () => undefined,
         getAgentPresets: () => { throw new Error('boom: presets') },
       })
       const res = await service.list({ cwd: '/repo', sessionId: 's2' })
