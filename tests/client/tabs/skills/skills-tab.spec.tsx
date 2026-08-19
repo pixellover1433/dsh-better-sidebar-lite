@@ -1,8 +1,10 @@
 /**
  * Skills tab component tests: framework-free — SkillsTab is rendered inside a
  * DockContext.Provider with a stub rpc and stub session/workspace hooks (the
- * skills tab is session-aware: it passes the active sessionId to skills/list so
- * the host merges the reachable harness scopes; it never sends a workspace cwd).
+ * skills tab is session- and workspace-aware: it resolves the active workspace
+ * root and sends it as the required cwd to skills/list, plus the active
+ * sessionId when present, so the host performs a cwd-sensitive lookup; with no
+ * resolvable root it shows the no-workspace empty state and skips the call).
  * No dsh test-runtime, no Cordis mount.
  */
 import { afterEach, describe, expect, it } from 'vitest'
@@ -143,11 +145,12 @@ describe('SkillsTab', () => {
     expect(screen.getByText('statusDisabled')).toBeTruthy()
     expect(screen.getByText('statusModelOnly')).toBeTruthy()
     expect(screen.getByText('statusUserOnly')).toBeTruthy()
-    // The request carries the active session id (workspace cwd is never sent).
+    // The request carries the resolved workspace root as the required cwd plus
+    // the active session id, so the host lookup is cwd-sensitive and scoped.
     await waitFor(() => {
       const call = rpc.calls.find(c => c.endpoint === Endpoints.skillsList)
       expect(call).toBeTruthy()
-      expect(call?.payload).toEqual({ sessionId: 's1' })
+      expect(call?.payload).toEqual({ cwd: ROOT, sessionId: 's1' })
     })
   })
 
@@ -182,17 +185,17 @@ describe('SkillsTab', () => {
     await screen.findByText('alpha')
   })
 
-  it('still fetches the catalog when no active session resolves', async () => {
+  it('shows the no-workspace state and skips the call when no root resolves', async () => {
     const rpc = new FakeRpc()
     rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({ ok: true, value: { skills: [entry({ name: 'alpha' })] } }))
     renderSkillsTab(rpc, { sessions: NO_SESSIONS })
 
-    await screen.findByText('alpha')
-    // No session id -> the request omits it (payload {}), but still fetches.
+    // No active session cwd and no resolvable workspace -> the empty state is
+    // shown and no skills/list call is issued (cwd is mandatory on the wire).
+    await screen.findByText('noWorkspace')
+    expect(screen.getByText('noWorkspaceHint')).toBeTruthy()
     await waitFor(() => {
-      const call = rpc.calls.find(c => c.endpoint === Endpoints.skillsList)
-      expect(call).toBeTruthy()
-      expect(call?.payload).toEqual({})
+      expect(rpc.calls.filter(c => c.endpoint === Endpoints.skillsList)).toHaveLength(0)
     })
   })
 

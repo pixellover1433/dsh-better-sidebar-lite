@@ -34,7 +34,7 @@ describe('SkillService', () => {
       summary({ name: 'beta', invocation: { modelInvocable: false, userInvocable: true }, whenToUse: 'when X', source: 'user-dsh', provider: 'runtime' }),
     ])
     const service = new SkillService(hostOnly(registry))
-    const res = await service.list({})
+    const res = await service.list({ cwd: '/repo' })
     expect(res.skills).toHaveLength(2)
 
     const alpha = res.skills[0]!
@@ -59,7 +59,7 @@ describe('SkillService', () => {
 
   it('omits whenToUse from the entry when absent', async () => {
     const service = new SkillService(hostOnly(registryWith([summary({ name: 'alpha' })])))
-    const res = await service.list({})
+    const res = await service.list({ cwd: '/repo' })
     expect(res.skills).toHaveLength(1)
     // exactOptionalPropertyTypes: an absent whenToUse must not ride undefined.
     expect(Object.hasOwn(res.skills[0] as object, 'whenToUse')).toBe(false)
@@ -67,13 +67,13 @@ describe('SkillService', () => {
 
   it('includes whenToUse when present', async () => {
     const service = new SkillService(hostOnly(registryWith([summary({ name: 'alpha', whenToUse: 'use when' })])))
-    const res = await service.list({})
+    const res = await service.list({ cwd: '/repo' })
     expect(res.skills[0]?.whenToUse).toBe('use when')
   })
 
   it('returns an empty catalog when the registry seam is absent', async () => {
     const service = new SkillService(hostOnly(undefined))
-    await expect(service.list({})).resolves.toEqual({ skills: [] })
+    await expect(service.list({ cwd: '/repo' })).resolves.toEqual({ skills: [] })
   })
 
   it('addresses the per-agent scoped registry when a sessionId is present', async () => {
@@ -85,10 +85,10 @@ describe('SkillService', () => {
       getAgents: () => agentsWith(agent),
       getAgentPresets: () => presetsWith(scopedRegistry),
     })
-    const res = await service.list({ sessionId: 's1' })
+    const res = await service.list({ cwd: '/repo', sessionId: 's1' })
     // The scoped registry (not the host one) is addressed, with the live agent
-    // as the view scope and no workspace narrowing.
-    expect(scopedList).toHaveBeenCalledWith({ scope: agent })
+    // as the view scope and the cwd required for cwd-sensitive lookup.
+    expect(scopedList).toHaveBeenCalledWith({ cwd: '/repo', scope: agent })
     expect(res.skills).toHaveLength(1)
     expect(res.skills[0]?.name).toBe('scoped')
   })
@@ -100,10 +100,26 @@ describe('SkillService', () => {
       getAgents: () => agentsWith(undefined),
       getAgentPresets: () => presetsWith(undefined),
     })
-    const res = await service.list({ sessionId: 'missing' })
+    const res = await service.list({ cwd: '/repo', sessionId: 'missing' })
     // No live agent -> no scoped registry -> the host registry is addressed
-    // with no scope (the global catalog).
-    expect(hostList).toHaveBeenCalledWith({})
+    // with no scope (the global catalog), still cwd-scoped.
+    expect(hostList).toHaveBeenCalledWith({ cwd: '/repo' })
     expect(res.skills[0]?.name).toBe('host')
+  })
+
+  it('rethrows and logs the concrete error when registry.list rejects', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const error = new Error('boom: missing cwd')
+      const registry = { list: async () => { throw error } } as unknown as SkillRegistry
+      const service = new SkillService(hostOnly(registry))
+      await expect(service.list({ cwd: '/repo', sessionId: 's9' })).rejects.toBe(error)
+      // The concrete failure is logged (not swallowed) so the root cause is visible.
+      expect(consoleError).toHaveBeenCalledWith(
+        'better-sidebar: skills/list failed (cwd=/repo, sessionId=s9): boom: missing cwd',
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 })

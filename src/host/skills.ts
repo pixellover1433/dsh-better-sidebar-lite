@@ -17,17 +17,23 @@ export class SkillService {
   async list(req: SkillListRequest): Promise<SkillListResult> {
     const live = req.sessionId === undefined ? undefined : this.deps.getAgents()?.get(req.sessionId)
     const presets = this.deps.getAgentPresets()
-    // Mirror the harness api-proxy: the live agent's preset may realm-mount its
-    // own skill registry, which host contexts cannot see; address the agent's
-    // registry, else fall back to the host-level registry.
-    const scoped = live === undefined ? undefined : (presets?.serviceFor(live, 'skills') as SkillRegistry | undefined)
+    // Mirror harness api-proxy: the agent's preset may realm-mount its own skill
+    // registry (invisible to host contexts); address it, else the host registry.
+    const scoped = live === undefined ? undefined : (presets?.serviceFor(live, 'skills') as unknown as SkillRegistry | undefined)
     const registry = scoped ?? this.deps.getSkills()
     if (!registry) return { skills: [] }
-    // Merge the reachable catalog across the scope chain (global + the live
-    // agent's layers) and do NOT narrow by a workspace cwd, so the full
-    // configured catalog is shown regardless of which workspace is open.
-    const summaries = await registry.list(live === undefined ? {} : { scope: live as unknown as ScopeKey })
-    return { skills: summaries.map(toEntry) }
+    try {
+      // The view scope is the live agent (its layer chain merges global +
+      // ancestors); cwd is required — skill lookup is cwd-sensitive. list()
+      // already returns all four invocation statuses, so no filtering here.
+      const scope = live as unknown as ScopeKey | undefined
+      const summaries = await registry.list({ cwd: req.cwd, ...(scope === undefined ? {} : { scope }) })
+      return { skills: summaries.map(toEntry) }
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error)
+      console.error(`better-sidebar: skills/list failed (cwd=${req.cwd}, sessionId=${req.sessionId ?? 'none'}): ${detail}`)
+      throw error
+    }
   }
 }
 

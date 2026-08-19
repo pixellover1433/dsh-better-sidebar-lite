@@ -1,19 +1,22 @@
 /**
  * Skills tab panel: shows the FULL harness skill catalog by reading the host
- * skill-registry service (ctx.skills) over the skills/list endpoint. The host
- * merges the reachable harness scopes (global layer + the active agent's layer
- * chain when a session id is present) and does NOT narrow by workspace cwd, so
- * every configured skill (bundled/user/custom roots) appears regardless of the
- * open workspace. Display-only — each row shows the skill's name, description,
+ * skill-registry service (ctx.skills) over the skills/list endpoint. The fetch
+ * is cwd-scoped (skill lookup is cwd-sensitive, so the active workspace root is
+ * sent), and the host merges the reachable harness scopes (global layer + the
+ * active agent's layer chain when a session id is present). list() already
+ * returns every skill with its invocation status (enabled/disabled/model-only/
+ * user-only), so the tab renders the full catalog — it does not filter by
+ * invocability. Display-only — each row shows the skill's name, description,
  * and its model/user invocation status derived from the resolved invocation
  * policy. Simpler than the git tab: no auto-refresh polling — a manual refresh
- * and one fetch on mount (or when the active session changes).
+ * and one fetch on mount (or when the active session or workspace changes).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { SkillEntry, SkillListRequest } from '../../../contract/skills.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
 import { useDock } from '../../dock/context.ts'
+import { resolveRoot } from '../../workspace-root.ts'
 import { RefreshIcon, SkillsIcon } from '../../icons.tsx'
 import type { SkillsKey } from './locales.ts'
 import styles from './skills.module.css'
@@ -42,15 +45,18 @@ const STATUS_KEY: Record<SkillsStatus, SkillsKey> = {
   userOnly: 'statusUserOnly',
 }
 
-/** Fetch state: loading, a surfaced error, or the loaded catalog. */
+/** Fetch state: loading, a surfaced error, the loaded catalog, or no workspace. */
 type SkillsState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'loaded'; skills: SkillEntry[] }
+  | { kind: 'noWorkspace' }
 
 export function SkillsTab({ rpc, t }: SkillsTabProps) {
-  const { useSessions } = useDock()
+  const { useSessions, useWorkspaces } = useDock()
   const sessions = useSessions(s => s)
+  const workspaces = useWorkspaces(w => w)
+  const root = resolveRoot(sessions, workspaces)
   const sessionId = sessions.current
 
   const [state, setState] = useState<SkillsState>({ kind: 'loading' })
@@ -58,6 +64,10 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
 
   /** Fetch the catalog, superseding any in-flight request. */
   const refresh = useCallback(() => {
+    if (root === undefined) {
+      setState({ kind: 'noWorkspace' })
+      return
+    }
     controllerRef.current?.abort()
     const ctrl = new AbortController()
     controllerRef.current = ctrl
@@ -65,14 +75,14 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
     void (async () => {
       // SessionId may be undefined when no active session resolves; omit it
       // rather than send an explicit undefined, which exactOptionalPropertyTypes
-      // forbids on the contract. The catalog is fetched regardless of workspace.
-      const payload: SkillListRequest = sessionId === undefined ? {} : { sessionId }
+      // forbids on the contract. cwd is always sent — skill lookup is cwd-sensitive.
+      const payload: SkillListRequest = { cwd: root, ...(sessionId === undefined ? {} : { sessionId }) }
       const res = await rpc.call(Endpoints.skillsList, payload, { signal: ctrl.signal })
       if (ctrl.signal.aborted) return
       if (res.ok) setState({ kind: 'loaded', skills: res.value.skills })
       else setState({ kind: 'error', message: res.error.message })
     })()
-  }, [rpc, sessionId])
+  }, [rpc, root, sessionId])
 
   // Fetch on mount; abort a still-in-flight request on unmount.
   useEffect(() => {
@@ -100,6 +110,12 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
             <button type="button" className={styles.stateAction} onClick={refresh}>
               {t('errorRetry')}
             </button>
+          </div>
+        )}
+        {state.kind === 'noWorkspace' && (
+          <div className={styles.state}>
+            <div className={styles.stateTitle}>{t('noWorkspace')}</div>
+            <div className={styles.stateHint}>{t('noWorkspaceHint')}</div>
           </div>
         )}
         {state.kind === 'loaded' && state.skills.length === 0 && (
