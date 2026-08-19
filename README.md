@@ -20,7 +20,7 @@ Add a sidebar to the right side of the workspace screen with usefull tabs:
 dsh plugin add dsh-better-sidebar-lite@v0.0.3-beta.1 --profile web
 ```
 
-(⚠️ **WARNING:** Make sure to install Deepseek Harness version 0.1.0-rc.7 or higher..)
+⚠️ **WARNING:** Make sure to install Deepseek Harness version 0.1.0-rc.7 or higher...
 
 # What is does ? (0.0.3-beta.1)
 Add a sidebar to the right side of the workspace screen. This area will contain tabs displaying various pieces of information, including:
