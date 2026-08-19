@@ -13,6 +13,7 @@ export declare function GitBranchIcon(props: IconProps): import("react").JSX.Ele
 export declare function ChevronRightIcon(props: IconProps): import("react").JSX.Element;
 export declare function ChevronDownIcon(props: IconProps): import("react").JSX.Element;
 export declare function RefreshIcon(props: IconProps): import("react").JSX.Element;
+export declare function SkillsIcon(props: IconProps): import("react").JSX.Element;
 export declare function CollapseIcon(props: IconProps): import("react").JSX.Element;
 export declare function ExpandIcon(props: IconProps): import("react").JSX.Element;
 export declare function CloseIcon(props: IconProps): import("react").JSX.Element;

@@ -1,10 +1,12 @@
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection';
 import type { ExplorerService } from './explorer.ts';
 import type { GitService } from './git.ts';
-/** The two service dependencies the dispatch table needs. */
+import type { SkillService } from './skills.ts';
+/** The service dependencies the dispatch table needs. */
 export interface HostServices {
     explorer: ExplorerService;
     git: GitService;
+    skills: SkillService;
 }
 /**
  * Build the channel handler that the host plugin registers via
