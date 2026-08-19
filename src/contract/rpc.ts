@@ -169,4 +169,5 @@ export function isGitCommitFileDiffRequest(v: unknown): v is GitCommitFileDiffRe
 
 export function isSkillListRequest(v: unknown): v is SkillListRequest {
   return v === undefined || (isRecord(v) && Object.keys(v).length === 0)
+}
 
