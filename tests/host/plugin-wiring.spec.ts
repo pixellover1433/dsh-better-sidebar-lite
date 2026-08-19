@@ -235,4 +235,26 @@ describe('host plugin wiring', () => {
       throw new Error('expected a SidebarResult failure');
     }
   });
+
+  it('serves skills/list with an empty catalog when the skills seam is absent', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.skillsList, {}, new AbortController().signal);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const envelope = result.value as { ok: boolean; value?: { skills: unknown[] } };
+      expect(envelope.ok).toBe(true);
+      expect(envelope.value).toMatchObject({ skills: [] });
+    }
+  });
+
+  it('rejects a malformed skills/list payload as bad-request', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.skillsList, { nope: 1 }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
 })

@@ -10,6 +10,7 @@ Build **dsh-better-sidebar-lite**: a plugin for [DeepSeek Harness](https://githu
 
 - **explorer** — a file-tree view of the current workspace (lazy-loaded directories, sort, refresh, selection)
 - **git** — git changes (status) and commits (log); refresh; error states (not-a-repo, git missing)
+- **skills** — reads the harness skill registry (`ctx.skills`) and lists each skill's model/user invocation status (read-only)
 
 Hard requirements from the project owner:
 1. **Clean code, easily extensible** — adding tabs/features must be a first-class, documented extension point (a tab registry), and each module must have a single responsibility.

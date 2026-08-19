@@ -4,11 +4,13 @@
  * channel on the injected connection, wrapped in a ctx.effect disposer.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import type { SkillRegistry } from '@deepseek-ai/dsh-skill'
 import { Config, resolveConfig, type BetterSidebarConfig } from './config.ts'
 import { fsNode } from './fs-node.ts'
 import { ExplorerService } from './explorer.ts'
 import { GitRunner } from './git-runner.ts'
 import { GitService } from './git.ts'
+import { SkillService } from './skills.ts'
 import { createChannelHandler } from './rpc.ts'
 import {
   BETTER_SIDEBAR_NAMESPACE,
@@ -56,7 +58,8 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
     maxStatusEntries: cfg.maxStatusEntries,
     untrackedFiles: cfg.untrackedFiles,
   })
-  const handler = createChannelHandler({ explorer, git })
+  const skills = new SkillService({ getRegistry: () => ctx.get('skills') as SkillRegistry | undefined })
+  const handler = createChannelHandler({ explorer, git, skills })
 
   ctx.inject(['connection'], (connectionCtx) => {
     connectionCtx.effect(() => {

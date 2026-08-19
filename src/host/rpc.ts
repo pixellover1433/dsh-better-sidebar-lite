@@ -21,16 +21,19 @@ import {
   isGitLogRequest,
   isGitStageRequest,
   isGitStatusRequest,
+  isSkillListRequest,
   type SidebarError,
   type SidebarResult,
 } from '../contract/index.ts'
 import type { ExplorerService } from './explorer.ts'
 import type { GitService } from './git.ts'
+import type { SkillService } from './skills.ts'
 
-/** The two service dependencies the dispatch table needs. */
+/** The service dependencies the dispatch table needs. */
 export interface HostServices {
   explorer: ExplorerService
   git: GitService
+  skills: SkillService
 }
 
 /**
@@ -139,6 +142,15 @@ async function dispatch(
         return badRequest('invalid payload for ' + endpoint)
       }
       return toRpcResult(await services.git.commitFileDiff(payload, signal))
+    }
+    case Endpoints.skillsList: {
+      if (!isSkillListRequest(payload)) return badRequest('invalid payload for ' + endpoint)
+      try {
+        const value = await services.skills.list()
+        return toRpcResult({ ok: true, value })
+      } catch (e) {
+        return toRpcResult({ ok: false, error: e as SidebarError })
+      }
     }
     default:
       return badRequest('unknown endpoint ' + endpoint)

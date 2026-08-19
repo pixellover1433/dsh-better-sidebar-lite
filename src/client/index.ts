@@ -22,11 +22,13 @@ import { createDockEntry, TOGGLE_EVENT } from './dock/dock.tsx'
 import { createSidebarToggleAction } from './dock/footer-toggle.tsx'
 import { createExplorerTabDef } from './tabs/explorer/tab-def.ts'
 import { createGitTabDef } from './tabs/git/tab-def.ts'
+import { createSkillsTabDef } from './tabs/skills/tab-def.ts'
 import { registerBetterSidebarCard, NS as CARD_PLUGINS_NS } from './settings-card/register.ts'
 import { en as cardPluginsEn, zh as cardPluginsZh } from './settings-card/locales.ts'
 import { en as dockEn, NS as DOCK_NS, zh as dockZh } from './locales.ts'
 import { en as explorerEn, NS as EXPLORER_NS, zh as explorerZh } from './tabs/explorer/locales.ts'
 import { en as gitEn, NS as GIT_NS, zh as gitZh } from './tabs/git/locales.ts'
+import { en as skillsEn, NS as SKILLS_NS, zh as skillsZh } from './tabs/skills/locales.ts'
 
 /** Cross-plugin service face (ADR-001). */
 export interface BetterSidebarService {
@@ -97,6 +99,7 @@ export function apply(ctx: ClientContext): void {
     const disposeShellLocale = ctx.locale.register(DOCK_NS, { zh: dockZh, en: dockEn })
     const disposeExplorerLocale = ctx.locale.register(EXPLORER_NS, { zh: explorerZh, en: explorerEn })
     const disposeGitLocale = ctx.locale.register(GIT_NS, { zh: gitZh, en: gitEn })
+    const disposeSkillsLocale = ctx.locale.register(SKILLS_NS, { zh: skillsZh, en: skillsEn })
     // Locale for this plugin's settings card (Settings > Plugins). Registered
     // even when the settings seam is absent — the namespaced card reads it only
     // if it mounts, and a duplicate namespace would throw.
@@ -104,6 +107,7 @@ export function apply(ctx: ClientContext): void {
 
     const disposeGitTab = tabs.register(createGitTabDef(ctx, { rpc, emitter: explorer }))
     const disposeExplorerTab = tabs.register(createExplorerTabDef(ctx, { rpc, emitter: explorer }))
+    const disposeSkillsTab = tabs.register(createSkillsTabDef(ctx, { rpc }))
 
     const DockEntry = createDockEntry({ rpc, tabs, events: explorer, settings: scope, t: ctx.locale.bind(DOCK_NS), layout: ctx.layout })
     // The dock owns the frame's right 'details' column (declared by ui-layout
@@ -139,12 +143,14 @@ export function apply(ctx: ClientContext): void {
       disposeShortcut()
       disposeFooterToggle()
       disposeDockEntry()
+      disposeSkillsTab()
       disposeExplorerTab()
       disposeGitTab()
+      disposeCardLocale()
+      disposeSkillsLocale()
       disposeGitLocale()
       disposeExplorerLocale()
       disposeShellLocale()
-      disposeCardLocale()
       // provide()'s disposer settles asynchronously; teardown is fire-and-forget.
       void disposeProvide()
     }

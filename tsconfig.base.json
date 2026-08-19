@@ -80,6 +80,12 @@
     "@deepseek-ai/dsh-settings/types": [
         "../deepseek-harness/packages/settings/settings/lib/types/types.d.ts"
     ],
+    "@deepseek-ai/dsh-scope": [
+        "../deepseek-harness/packages/core/scope/lib/types/index.d.ts"
+    ],
+    "@deepseek-ai/dsh-skill": [
+        "../deepseek-harness/packages/skill/skill/lib/types/index.d.ts"
+    ],
     "@deepseek-ai/dsh-llm": [
         "../deepseek-harness/packages/llm/llm/lib/types/index.d.ts"
     ],

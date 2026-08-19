@@ -49,6 +49,10 @@ export function RefreshIcon(props: IconProps) {
   return <svg {...base(props)}><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" /><path d="M13.5 1.8v2.6h-2.6" /></svg>
 }
 
+export function SkillsIcon(props: IconProps) {
+  return <svg {...base(props)}><path d="M8 1.5l1.6 4.8 4.9 1.7-4.9 1.7L8 14.5" /><path d="M4 9.5l.8 2.2 2.2.8" /></svg>
+}
+
 export function CollapseIcon(props: IconProps) {
   return <svg {...base(props)}><path d="M11 3.5V12.5" /><path d="M5 4l4 4l-4 4" /></svg>
 }

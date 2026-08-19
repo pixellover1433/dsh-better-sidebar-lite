@@ -5,6 +5,7 @@
  */
 import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts'
 import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitFileDiffRequest, GitCommitFileDiffResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
+import type { SkillListRequest, SkillListResult } from './skills.ts'
 
 /** Endpoint names (also the wire method segment after the channel). */
 export const Endpoints = {
@@ -20,6 +21,7 @@ export const Endpoints = {
   gitDiscard: 'git/discard',
   gitDiff: 'git/diff',
   gitCommitFileDiff: 'git/commit-file-diff',
+  skillsList: 'skills/list',
 } as const
 
 export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints]
@@ -38,6 +40,7 @@ export interface BetterSidebarReqMap {
   'git/discard': GitDiscardRequest
   'git/diff': GitDiffRequest
   'git/commit-file-diff': GitCommitFileDiffRequest
+  'skills/list': SkillListRequest
 }
 
 /** Success value per endpoint. */
@@ -54,6 +57,7 @@ export interface BetterSidebarResMap {
   'git/discard': null
   'git/diff': GitDiffResult
   'git/commit-file-diff': GitCommitFileDiffResult
+  'skills/list': SkillListResult
 }
 
 /** Host-side defaults; all are config-overridable (see host config). */
@@ -162,3 +166,7 @@ export function isGitCommitFileDiffRequest(v: unknown): v is GitCommitFileDiffRe
   if (!isRecord(v) || !isPath(v.path) || !isSafeFile(v.file)) return false
   return typeof v.hash === 'string' && /^[0-9a-f]{4,64}$/i.test(v.hash)
 }
+
+export function isSkillListRequest(v: unknown): v is SkillListRequest {
+  return v === undefined || (isRecord(v) && Object.keys(v).length === 0)
+

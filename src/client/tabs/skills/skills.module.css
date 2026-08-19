@@ -1,0 +1,183 @@
+/* Right-sidebar skills tab. Tokens are the dock-wide --bsd-* set
+   declared on the dock root (ADR-003/D7); fallbacks keep the module usable
+   standalone. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--bsd-text, #1f2328);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--bsd-muted, #656d76);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.iconButton:hover { background: var(--bsd-bg-hover, rgba(0,0,0,0.04)); }
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px 16px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  min-width: 0;
+}
+.row:last-child { border-bottom: none; }
+.row:hover { background: var(--bsd-bg-hover, rgba(0,0,0,0.04)); }
+
+.skillName {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--bsd-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40%;
+}
+
+.skillDesc {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--bsd-muted, #656d76);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  white-space: nowrap;
+}
+.enabled {
+  color: #1a7f37;
+  background: rgba(26,127,55,0.1);
+  border-color: rgba(26,127,55,0.3);
+}
+.disabled {
+  color: var(--bsd-muted, #656d76);
+  background: var(--bsd-bg-hover, rgba(0,0,0,0.04));
+}
+.modelOnly,
+.userOnly {
+  color: #9a6700;
+  background: rgba(154,103,0,0.1);
+  border-color: rgba(154,103,0,0.3);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 24px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--bsd-muted, #656d76);
+}
+
+.loading {
+  padding: 16px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--bsd-muted, #656d76);
+}
+
+/* Inline transient-error banner affordance (allowed-to-exist; the panel's
+   simpler error state uses .state/.stateAction instead). */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bsd-banner-bg, rgba(9,105,218,0.1));
+  border: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  color: var(--bsd-text, #1f2328);
+  font-size: 13px;
+}
+
+.retryButton {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  border-radius: 4px;
+  background: var(--bsd-bg-hover, rgba(0,0,0,0.04));
+  color: var(--bsd-accent, #0969da);
+  cursor: pointer;
+  font-size: 12px;
+}
+.retryButton:hover { background: var(--bsd-bg-hover, rgba(0,0,0,0.08)); }
+
+/* Full-tab error/empty states (never blank the shell). */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--bsd-text, #1f2328);
+}
+.stateTitle { font-size: 14px; font-weight: 600; }
+.stateHint { font-size: 13px; color: var(--bsd-muted, #656d76); }
+.stateAction {
+  margin-top: 4px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bsd-accent, #0969da);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}

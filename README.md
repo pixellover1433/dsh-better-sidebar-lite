@@ -2,7 +2,7 @@
 
 ![Alt text](image/avatar.png)
 
-A right-side tabbed sidebar for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) **web**: **explorer** (workspace file tree) and **git** (changes & commits) tabs, built on an extensible **tab registry**.
+A right-side tabbed sidebar for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh) **web**: **explorer** (workspace file tree), **git** (changes & commits), and **skills** (available agent skills & their invocation status) tabs, built on an extensible **tab registry**.
 
 > **Status: development build in this workspace — NOT installed into any running dsh deployment.**
 > Installing is a documented, deliberate step (see Installing below).
@@ -27,7 +27,7 @@ dsh plugin add dsh-better-sidebar-lite@v0.0.3-beta.1 --profile web
 
 Two halves of one cordis plugin:
 
-- **Host half** (Node): registers the generic Connection RPC channel `/better-sidebar` with `authority: loopback` and serves nine endpoints: `explorer/list`, `explorer/stamp` (auto-refresh change stamps), `git/status`, `git/log`, `git/stage`, `git/unstage`, `git/commit-detail` (full message + changed files of one commit), `git/commit` (stage + commit), and `git/discard` (restore/clean). Filesystem access uses `node:fs/promises`; git runs via a spawn wrapper with fixed arguments, optional stdin for commit messages, timeout and abort support — no shell interpolation.
+- **Host half** (Node): registers the generic Connection RPC channel `/better-sidebar` with `authority: loopback` and serves ten endpoints: `explorer/list`, `explorer/stamp` (auto-refresh change stamps), `git/status`, `git/log`, `git/stage`, `git/unstage`, `git/commit-detail` (full message + changed files of one commit), `git/commit` (stage + commit), `git/discard` (restore/clean), and `skills/list`. Filesystem access uses `node:fs/promises`; git runs via a spawn wrapper with fixed arguments, optional stdin for commit messages, timeout and abort support — no shell interpolation.
 - **Client half** (browser): registers one entry into the layout's right `details` column (declared by ui-layout AppFrame; priority -1 shadows ui-conversation's DetailsPanel) that renders the sidebar with a tab bar. Because the dock is a real grid column, the conversation shrinks beside it — it never overlaps the main UI. The dock tab set comes from `ctx.betterSidebar.tabs`, a registry any plugin can contribute to.
 
 Data flow (one round trip):
@@ -129,7 +129,7 @@ export function apply(ctx: ClientContext): void {
 
 Requirements: a stable unique `id` (duplicates throw TabRegisterError), registration inside `ctx.effect` (unload disposes), and panel components that read dsh session/workspace data through `useDock()` (the context the dock provides around every panel) or through props captured by the factory.
 
-Built-in tabs are the reference implementation: explorer (id explorer, order 10) and git (id git, order 20), registered in the plugin own `apply` through the same public API.
+Built-in tabs are the reference implementation: explorer (id explorer, order 10), git (id git, order 20), and skills (id skills, order 30), registered in the plugin own `apply` through the same public API.
 
 ## Error codes
 
