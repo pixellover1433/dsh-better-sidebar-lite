@@ -14,7 +14,8 @@
  * invocability.
  * Display-only — each row shows the skill's name, description, and its
  * model/user invocation status derived from the resolved invocation policy.
- * Simpler than the git tab: no auto-refresh polling — a manual refresh and one
+ * Auto-loads via a silent fallback poll on an interval (so skills appear as the
+ * catalog is populated after mount), in addition to a manual refresh and one
  * fetch on mount (or when the active session or workspace changes).
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -26,6 +27,11 @@ import { resolveRoot } from '../../workspace-root.ts'
 import { RefreshIcon, SkillsIcon } from '../../icons.tsx'
 import type { SkillsKey } from './locales.ts'
 import styles from './skills.module.css'
+
+/** Fallback auto-refresh cadence. Skills may be injected into the session after
+ *  the tab mounts, so we re-poll on an interval (silent) instead of relying on
+ *  the single mount fetch. */
+export const SKILLS_POLL_MS = 5000
 
 export interface SkillsTabProps {
   rpc: BetterSidebarRpc
@@ -68,16 +74,18 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
   const [state, setState] = useState<SkillsState>({ kind: 'loading' })
   const controllerRef = useRef<AbortController | null>(null)
 
-  /** Fetch the catalog, superseding any in-flight request. */
-  const refresh = useCallback(() => {
+  /** Fetch the catalog, superseding any in-flight request. Non-silent calls
+   *  blank the list to a loading state; silent calls (the fallback poll) refresh
+   *  behind the currently-rendered list so it is never blanked. */
+  const fetchCatalog = useCallback((opts: { silent: boolean }) => {
     if (root === undefined) {
-      setState({ kind: 'noWorkspace' })
+      if (!opts.silent) setState({ kind: 'noWorkspace' })
       return
     }
     controllerRef.current?.abort()
     const ctrl = new AbortController()
     controllerRef.current = ctrl
-    setState({ kind: 'loading' })
+    if (!opts.silent) setState({ kind: 'loading' })
     void (async () => {
       // SessionId may be undefined when no active session resolves; omit it
       // rather than send an explicit undefined, which exactOptionalPropertyTypes
@@ -97,11 +105,29 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
     })()
   }, [rpc, root, sessionId])
 
+  /** Normal (non-silent) refresh used by the header/retry buttons and mount. */
+  const refresh = useCallback(() => { void fetchCatalog({ silent: false }) }, [fetchCatalog])
+
   // Fetch on mount; abort a still-in-flight request on unmount.
   useEffect(() => {
     refresh()
     return () => controllerRef.current?.abort()
   }, [refresh])
+
+  /**
+   * Fallback poll: catches skills injected into the session after mount by
+   * re-fetching silently so the already-loaded list is never blanked. Runs only
+   * while this tab is mounted, skips hidden documents, and supersedes any
+   * in-flight request (fetchCatalog aborts it).
+   */
+  useEffect(() => {
+    if (root === undefined) return
+    const id = window.setInterval(() => {
+      if (document.hidden) return
+      void fetchCatalog({ silent: true })
+    }, SKILLS_POLL_MS)
+    return () => window.clearInterval(id)
+  }, [root, fetchCatalog])
 
   return (
     <div className={styles.panel}>

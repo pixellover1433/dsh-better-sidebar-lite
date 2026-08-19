@@ -8,7 +8,7 @@
  * No dsh test-runtime, no Cordis mount.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
@@ -17,7 +17,7 @@ import type { SidebarError, SidebarResult } from '../../../../src/contract/error
 import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type BetterSidebarResMap } from '../../../../src/contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
 import { DockContext, type DockContextValue } from '../../../../src/client/dock/context.ts'
-import { skillStatus, SkillsTab, type SkillsTabProps } from '../../../../src/client/tabs/skills/SkillsTab.tsx'
+import { skillStatus, SkillsTab, SKILLS_POLL_MS, type SkillsTabProps } from '../../../../src/client/tabs/skills/SkillsTab.tsx'
 
 /** Locale stub: render keys verbatim so assertions read the raw key. */
 const t: SkillsTabProps['t'] = (key) => key
@@ -228,6 +228,35 @@ describe('SkillsTab', () => {
       expect(screen.getByText('emptyTitle')).toBeTruthy()
     } finally {
       consoleError.mockRestore()
+    }
+  })
+
+  it('re-polls silently on the fallback cadence so recently-injected skills appear without blanking the list', async () => {
+    vi.useFakeTimers()
+    try {
+      const rpc = new FakeRpc()
+      rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({ ok: true, value: { skills: [entry({ name: 'alpha' })] } }))
+      renderSkillsTab(rpc)
+
+      // Flush the initial mount fetch and its async state update.
+      await act(async () => {})
+      expect(screen.getByText('alpha')).toBeTruthy()
+
+      const initial = rpc.calls.filter(c => c.endpoint === Endpoints.skillsList)
+      expect(initial).toHaveLength(1)
+
+      // A full cadence elapses: the poll re-fetches the same payload (silent),
+      // and the already-loaded list stays rendered — no loading spinner.
+      act(() => { vi.advanceTimersByTime(SKILLS_POLL_MS) })
+      await act(async () => {})
+
+      const calls = rpc.calls.filter(c => c.endpoint === Endpoints.skillsList)
+      expect(calls).toHaveLength(2)
+      expect(calls[1]?.payload).toEqual({ cwd: ROOT, sessionId: 's1' })
+      expect(screen.getByText('alpha')).toBeTruthy()
+      expect(screen.queryByText('loading')).toBeNull()
+    } finally {
+      vi.useRealTimers()
     }
   })
 
