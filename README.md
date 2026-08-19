@@ -51,3 +51,4 @@ Add a sidebar to the right side of the workspace screen. This area will contain 
 <img alt="review_1" src="./printshots/review_1.png" />
 <img alt="review_2" src="./printshots/review_2.png" />
 <img alt="review_4" src="./printshots/review_4.png" />
+<img alt="review_4" src="./printshots/review_5.png" />
