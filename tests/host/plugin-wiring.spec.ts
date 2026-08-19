@@ -236,18 +236,22 @@ describe('host plugin wiring', () => {
     }
   });
 
-  it('serves skills/list with an empty catalog when the skills seam is absent', async () => {
+  it('serves skills/list with an empty catalog plus a warning when the skills seam is absent', async () => {
     apply(ctx, {});
     await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
     const handler = connection.captured.handler!;
     // The bare test Context has no skills/agents/presets seams, so the scoped
-    // resolution falls through to the host registry, which is also absent.
+    // resolution falls through to the host registry, which is also absent. The
+    // host never throws for a listing failure: it returns a SUCCESS value whose
+    // `warning` string carries the diagnostic detail (which survives JSON).
     const result = await handler(Endpoints.skillsList, { cwd: dir }, new AbortController().signal);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      const envelope = result.value as { ok: boolean; value?: { skills: unknown[] } };
+      const envelope = result.value as { ok: boolean; value?: { skills: unknown[]; warning?: string } };
       expect(envelope.ok).toBe(true);
       expect(envelope.value).toMatchObject({ skills: [] });
+      expect(typeof envelope.value?.warning).toBe('string');
+      expect(envelope.value?.warning).toContain('skills/list failed:');
     }
   });
 

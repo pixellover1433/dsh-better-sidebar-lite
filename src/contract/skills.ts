@@ -30,4 +30,6 @@ export interface SkillListRequest {
 
 export interface SkillListResult {
   skills: SkillEntry[]
+  /** Human-readable failure detail when the catalog could not be listed; survives the RPC value slot (strings are JSON-safe). */
+  warning?: string
 }

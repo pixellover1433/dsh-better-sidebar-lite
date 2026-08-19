@@ -4,10 +4,14 @@
  * is cwd-scoped (skill lookup is cwd-sensitive, so the active workspace root is
  * sent), and the host merges the reachable harness scopes (global layer + the
  * active agent's layer chain when a session id is present). Any domain error
- * returned by the host (as a value-slot SidebarResult) is logged to the browser
- * console so a broken tab is diagnosable. list() already returns every skill
- * with its invocation status (enabled/disabled/model-only/user-only), so the
- * tab renders the full catalog — it does not filter by invocability.
+ * returned by the host (as a value-slot SidebarResult, now rare — only
+ * bad-request) is logged to the browser console so a broken tab is diagnosable.
+ * A listing failure (an absent registry or a registry error) is surfaced by the
+ * host as a SUCCESS result carrying a `warning` string, which the tab renders as
+ * a visible hint above the catalog rather than a hard error. list() already
+ * returns every skill with its invocation status (enabled/disabled/model-only/
+ * user-only), so the tab renders the full catalog — it does not filter by
+ * invocability.
  * Display-only — each row shows the skill's name, description, and its
  * model/user invocation status derived from the resolved invocation policy.
  * Simpler than the git tab: no auto-refresh polling — a manual refresh and one
@@ -51,7 +55,7 @@ const STATUS_KEY: Record<SkillsStatus, SkillsKey> = {
 type SkillsState =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'loaded'; skills: SkillEntry[] }
+  | { kind: 'loaded'; skills: SkillEntry[]; warning?: string }
   | { kind: 'noWorkspace' }
 
 export function SkillsTab({ rpc, t }: SkillsTabProps) {
@@ -81,13 +85,14 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
       const payload: SkillListRequest = { cwd: root, ...(sessionId === undefined ? {} : { sessionId }) }
       const res = await rpc.call(Endpoints.skillsList, payload, { signal: ctrl.signal })
       if (ctrl.signal.aborted) return
-      if (res.ok) setState({ kind: 'loaded', skills: res.value.skills })
+      if (res.ok) setState({ kind: 'loaded', skills: res.value.skills, ...(res.value.warning === undefined ? {} : { warning: res.value.warning }) })
       else {
-        // The host surfaced a domain error (value-slot SidebarResult). The client
-        // facade is intentionally silent on these; log here so a broken skills tab
-        // is diagnosable from the browser console.
-        console.error('better-sidebar: skills/list failed', res.error.code, res.error.message)
-        setState({ kind: 'error', message: res.error.message })
+        // The host surfaced a domain error (value-slot SidebarResult), which is
+        // now rare — only a malformed request reaches this branch. It must still
+        // not crash on an empty `error` object, and the full received object is
+        // logged so a broken tab is diagnosable from the browser console.
+        console.error('better-sidebar: skills/list failed', JSON.stringify(res))
+        setState({ kind: 'error', message: res.error?.message ?? '' })
       }
     })()
   }, [rpc, root, sessionId])
@@ -124,6 +129,12 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
           <div className={styles.state}>
             <div className={styles.stateTitle}>{t('noWorkspace')}</div>
             <div className={styles.stateHint}>{t('noWorkspaceHint')}</div>
+          </div>
+        )}
+        {state.kind === 'loaded' && state.warning !== undefined && (
+          <div className={styles.warning}>
+            <span className={styles.warningTitle}>{t('warningTitle')}</span>
+            <span className={styles.warningText}>{state.warning}</span>
           </div>
         )}
         {state.kind === 'loaded' && state.skills.length === 0 && (

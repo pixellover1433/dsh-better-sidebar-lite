@@ -71,9 +71,18 @@ describe('SkillService', () => {
     expect(res.skills[0]?.whenToUse).toBe('use when')
   })
 
-  it('returns an empty catalog when the registry seam is absent', async () => {
-    const service = new SkillService(hostOnly(undefined))
-    await expect(service.list({ cwd: '/repo' })).resolves.toEqual({ skills: [] })
+  it('returns a warning when the registry seam is absent', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const service = new SkillService(hostOnly(undefined))
+      const res = await service.list({ cwd: '/repo' })
+      // Listing never throws: an absent seam is a SUCCESS with the detail as warning.
+      expect(res.skills).toEqual([])
+      expect(res.warning).toContain('skills/list failed:')
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list failed, returning warning'))
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('addresses the per-agent scoped registry when a sessionId is present', async () => {
@@ -107,39 +116,38 @@ describe('SkillService', () => {
     expect(res.skills[0]?.name).toBe('host')
   })
 
-  it('rethrows and logs the concrete error when registry.list rejects', async () => {
+  it('converts a registry.list rejection into a success warning, logging the detail', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const error = new Error('boom: missing cwd')
       const registry = { list: async () => { throw error } } as unknown as SkillRegistry
       const service = new SkillService(hostOnly(registry))
-      // The host rejects with an ADR-002 SidebarError POJO (not an Error) so it
-      // survives RPC value-slot serialization, carrying `skills/list failed: <detail>`.
-      await expect(service.list({ cwd: '/repo', sessionId: 's9' })).rejects.toMatchObject({
-        code: 'internal',
-        message: expect.stringContaining('skills/list failed:'),
-      })
+      // Listing never throws: a registry error resolves to a SUCCESS result whose
+      // `warning` string survives RPC value-slot serialization (the previous
+      // thrown SidebarError did not reach the browser because the value-slot
+      // error object is JSON-mangled).
+      const res = await service.list({ cwd: '/repo', sessionId: 's9' })
+      expect(res).toEqual({ skills: [], warning: expect.stringContaining('skills/list failed:') })
       // The concrete failure is logged (not swallowed) so the root cause is visible.
-      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list threw'))
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list failed, returning warning'))
       expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('boom: missing cwd'))
     } finally {
       consoleError.mockRestore()
     }
   })
 
-  it('wraps a throw from the preset serviceFor as a skills/list failure', async () => {
+  it('catches a throw from getAgentPresets() into the same warning shape', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       const service = new SkillService({
         getSkills: () => registryWith([]),
         getAgents: () => agentsWith({ id: 's2' }),
-        getAgentPresets: () => ({ serviceFor: () => { throw new Error('boom: serviceFor') } }),
+        getAgentPresets: () => { throw new Error('boom: presets') },
       })
-      await expect(service.list({ cwd: '/repo', sessionId: 's2' })).rejects.toMatchObject({
-        code: 'internal',
-        message: expect.stringContaining('skills/list failed:'),
-      })
-      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list threw'))
+      const res = await service.list({ cwd: '/repo', sessionId: 's2' })
+      expect(res).toEqual({ skills: [], warning: expect.stringContaining('skills/list failed:') })
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/list failed, returning warning'))
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('boom: presets'))
     } finally {
       consoleError.mockRestore()
     }

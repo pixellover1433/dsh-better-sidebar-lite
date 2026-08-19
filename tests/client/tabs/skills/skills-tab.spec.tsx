@@ -176,8 +176,11 @@ describe('SkillsTab', () => {
 
       await screen.findByText('errorTitle')
       // The initial (domain-error) load is logged to the browser console with
-      // the surfaced code and message, so a broken tab is diagnosable.
-      expect(consoleError).toHaveBeenCalledWith('better-sidebar: skills/list failed', 'internal', 'boom')
+      // the full received object, so a broken tab is diagnosable.
+      expect(consoleError).toHaveBeenCalledWith(
+        'better-sidebar: skills/list failed',
+        JSON.stringify({ ok: false, error: { code: 'internal', message: 'boom' } }),
+      )
       expect(screen.getByRole('button', { name: 'errorRetry' })).toBeTruthy()
 
       failing = false
@@ -205,6 +208,27 @@ describe('SkillsTab', () => {
     await waitFor(() => {
       expect(rpc.calls.filter(c => c.endpoint === Endpoints.skillsList)).toHaveLength(0)
     })
+  })
+
+  it('renders a listing warning hint and stays in the loaded/empty state', async () => {
+    const rpc = new FakeRpc()
+    rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({
+      ok: true,
+      value: { skills: [], warning: 'skills/list failed: boom' },
+    }))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      renderSkillsTab(rpc)
+
+      // The warning text and its label are shown above the empty catalog.
+      await screen.findByText('skills/list failed: boom')
+      expect(screen.getByText('warningTitle')).toBeTruthy()
+      // Listing failures are not hard errors: the empty/loaded state remains.
+      expect(screen.queryByText('errorTitle')).toBeNull()
+      expect(screen.getByText('emptyTitle')).toBeTruthy()
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('skillStatus derives the four statuses from the invocation policy', () => {
