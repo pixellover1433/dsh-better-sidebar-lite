@@ -1,6 +1,6 @@
 import type { SkillRegistry, SkillSummary } from '@deepseek-ai/dsh-skill'
 import type { ScopeKey } from '@deepseek-ai/dsh-scope'
-import type { SkillEntry, SkillListRequest, SkillListResult } from '../contract/index.ts'
+import type { SkillEntry, SkillListRequest, SkillListResult, SidebarError } from '../contract/index.ts'
 
 export interface SkillServiceDeps {
   /** Lazily resolved harness skill registry; undefined when the seam is not composed. */
@@ -33,7 +33,7 @@ export class SkillService {
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error)
       console.error(`better-sidebar: skills/list threw (cwd=${req.cwd}, sessionId=${req.sessionId ?? 'none'}): ${detail}`)
-      throw new Error(`skills/list failed: ${detail}`)
+      throw { code: 'internal', message: `skills/list failed: ${detail}` } satisfies SidebarError
     }
   }
 }
