@@ -34,7 +34,7 @@ Add a sidebar to the right side of the workspace screen. This area will contain 
   - Automatically track changes, displaying files that have been changed or modified (git diff tracking).
   - Commit, stage, discard change  
   - Commit history
-- ***Skills*:
+- **Skills**:
   - Will display a list of skills that the current agent (preset) has loaded/will load into.
 - Synchronize the light/dark mode of your Deepseek Harnes profile.
 - Allows for custom configurations through the settings from the Deepseek Harness configuration interface.
