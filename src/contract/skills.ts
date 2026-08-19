@@ -19,8 +19,12 @@ export interface SkillEntry {
   provider: string
 }
 
-/** The skills catalog is the global root layer; no payload is needed. */
-export type SkillListRequest = Record<string, never>
+export interface SkillListRequest {
+  /** Absolute workspace root (active session cwd or current workspace) to scope discovery. */
+  cwd: string
+  /** Active session id; when present the host resolves the per-agent skill registry. */
+  sessionId?: string
+}
 
 export interface SkillListResult {
   skills: SkillEntry[]

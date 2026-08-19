@@ -146,7 +146,7 @@ async function dispatch(
     case Endpoints.skillsList: {
       if (!isSkillListRequest(payload)) return badRequest('invalid payload for ' + endpoint)
       try {
-        const value = await services.skills.list()
+        const value = await services.skills.list(payload)
         return toRpcResult({ ok: true, value })
       } catch (e) {
         return toRpcResult({ ok: false, error: e as SidebarError })

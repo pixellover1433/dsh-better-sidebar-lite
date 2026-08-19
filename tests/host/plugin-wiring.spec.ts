@@ -240,7 +240,9 @@ describe('host plugin wiring', () => {
     apply(ctx, {});
     await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
     const handler = connection.captured.handler!;
-    const result = await handler(Endpoints.skillsList, {}, new AbortController().signal);
+    // The bare test Context has no skills/agents/presets seams, so the scoped
+    // resolution falls through to the host registry, which is also absent.
+    const result = await handler(Endpoints.skillsList, { cwd: dir }, new AbortController().signal);
     expect(result.ok).toBe(true);
     if (result.ok) {
       const envelope = result.value as { ok: boolean; value?: { skills: unknown[] } };
@@ -254,6 +256,15 @@ describe('host plugin wiring', () => {
     await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
     const handler = connection.captured.handler!;
     const result = await handler(Endpoints.skillsList, { nope: 1 }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
+
+  it('rejects a skills/list payload whose cwd is not a string path', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.skillsList, { cwd: 123 }, new AbortController().signal);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('bad-request');
   });
