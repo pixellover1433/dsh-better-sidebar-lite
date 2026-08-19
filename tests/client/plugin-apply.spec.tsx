@@ -55,7 +55,7 @@ describe('client plugin apply', () => {
     try {
       const service = (rt.ctx as unknown as { betterSidebar?: BetterSidebarService }).betterSidebar
       expect(service).toBeDefined()
-      expect(service?.tabs.ids()).toEqual(['explorer', 'git'])
+      expect(service?.tabs.ids()).toEqual(['explorer', 'git', 'skills'])
       expect(service?.tabs.active).toBe('explorer')
 
       // Strict session scope: the details occupant renders only with a
@@ -69,6 +69,7 @@ describe('client plugin apply', () => {
       expect(view.view.getByRole('tablist')).toBeTruthy()
       expect(view.view.getByRole('tab', { name: 'Explorer' })).toBeTruthy()
       expect(view.view.getByRole('tab', { name: 'Git' })).toBeTruthy()
+      expect(view.view.getByRole('tab', { name: 'Skills' })).toBeTruthy()
 
       await handle.dispose()
       // Teardown collapses the registrations: the registry is empty again.
