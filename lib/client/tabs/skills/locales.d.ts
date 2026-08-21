@@ -16,6 +16,12 @@ export declare const zh: {
     readonly statusDisabled: "已禁用";
     readonly statusModelOnly: "仅模型";
     readonly statusUserOnly: "仅用户";
+    readonly detailBack: "返回";
+    readonly detailContentTitle: "内容";
+    readonly detailReferencesTitle: "引用文件";
+    readonly detailNoReferences: "无引用文件";
+    readonly detailNotFound: "未找到该技能";
+    readonly detailProvider: "提供方";
 };
 /** English dictionary, key-identical to the zh source of truth. */
 export declare const en: Record<SkillsKey, string>;

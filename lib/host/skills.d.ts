@@ -1,5 +1,6 @@
 import type { SkillRegistry } from '@deepseek-ai/dsh-skill';
-import type { SkillListRequest, SkillListResult } from '../contract/index.ts';
+import type { Dirent } from 'node:fs';
+import type { SkillDetailRequest, SkillDetailResult, SkillListRequest, SkillListResult } from '../contract/index.ts';
 /** Lazy harness agent-presets seam; structurally typed to avoid extra runtime deps. */
 interface AgentPresetsSeam {
     serviceFor(agent: unknown, name: string): unknown;
@@ -16,6 +17,8 @@ export interface SkillServiceDeps {
     getSession: (sessionId: string) => unknown;
     /** Lazy harness agent-presets registry; structurally typed. */
     getAgentPresets: () => AgentPresetsSeam | undefined;
+    /** List a directory's entries (used to discover the files a skill can reference). */
+    readDir?: (dir: string) => Promise<Dirent[]>;
 }
 export declare class SkillService {
     private readonly deps;
@@ -31,6 +34,31 @@ export declare class SkillService {
      * into a live session).
      */
     list(req: SkillListRequest): Promise<SkillListResult>;
+    /**
+     * Load one skill's detail, mirroring list()'s error philosophy (never throws;
+     * every failure — including an absent seam or an unresolvable skill — is a
+     * SUCCESS result whose `found`/`warning` fields carry the outcome, so the
+     * RPC value slot stays JSON-safe). Found details map the loaded SKILL.md body
+     * and the sibling files the skill's resource directory can reference.
+     */
+    detail(req: SkillDetailRequest): Promise<SkillDetailResult>;
+    /** Resolve the registry to address and the view scope, shared by list() and detail(). */
+    private resolveRegistry;
+    /**
+     * Coerce a detail-load failure into a SUCCESS result whose `found` is false
+     * and whose `warning` is a plain string. Mirrors list()'s warn() — never throws.
+     */
+    private warnDetail;
+    /** Stable empty field defaults shared by every could-not-load detail outcome. */
+    private emptyDetail;
+    /**
+     * List the sibling files/dirs a skill's resource directory exposes. The
+     * resource directory is the skill's own directory: the provider-declared
+     * directory base when present, else the directory of the SKILL.md file. A
+     * missing seam, an unreadable directory, or an unknown directory all resolve
+     * to an empty reference list — never a failure.
+     */
+    private resolveReferences;
     /**
      * The preset a session actually runs, newest selection winning (mirrors the
      * harness's resolveSessionPreset, implemented structurally with no runtime

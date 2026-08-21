@@ -12,7 +12,7 @@ import { cleanup, render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { SessionListState, WorkspaceListState } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SkillEntry } from '../../../../src/contract/skills.ts'
+import type { SkillEntry, SkillDetailResult } from '../../../../src/contract/skills.ts'
 import type { SidebarError, SidebarResult } from '../../../../src/contract/errors.ts'
 import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type BetterSidebarResMap } from '../../../../src/contract/rpc.ts'
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
@@ -259,6 +259,86 @@ describe('SkillsTab', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('double-clicking a row opens the detail view with the loaded content and references', async () => {
+    const rpc = new FakeRpc()
+    rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({
+      ok: true,
+      value: { skills: [entry({ name: 'alpha', description: 'Alpha thing' })] },
+    }))
+    const detail: SkillDetailResult = {
+      found: true,
+      name: 'alpha',
+      description: 'Alpha detail desc',
+      invocation: { modelInvocable: true, userInvocable: true },
+      source: 'bundled',
+      provider: 'runtime',
+      content: '# Alpha\nBody content',
+      path: `${ROOT}/.dsh/skills/alpha/SKILL.md`,
+      resourceDir: `${ROOT}/.dsh/skills/alpha`,
+      references: [
+        { name: 'guide.md', path: `${ROOT}/.dsh/skills/alpha/guide.md`, kind: 'file' },
+        { name: 'references', path: `${ROOT}/.dsh/skills/alpha/references`, kind: 'directory' },
+      ],
+    }
+    rpc.setHandler(Endpoints.skillsDetail, () => Promise.resolve({ ok: true, value: detail }))
+    renderSkillsTab(rpc)
+
+    await screen.findByText('alpha')
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByText('alpha'))
+
+    // The detail request carries the skill name, the workspace cwd, and the
+    // active session id so the host performs a cwd-sensitive scoped lookup.
+    await waitFor(() => {
+      const call = rpc.calls.find(c => c.endpoint === Endpoints.skillsDetail)
+      expect(call).toBeTruthy()
+      expect(call?.payload).toEqual({ name: 'alpha', cwd: ROOT, sessionId: 's1' })
+    })
+
+    // The loaded SKILL.md body and the sibling references render. (getByText
+    // normalizes whitespace, so the embedded newline reads as a single space.)
+    await screen.findByText('# Alpha Body content')
+    expect(screen.getByText('Alpha detail desc')).toBeTruthy()
+    expect(screen.getByText('guide.md')).toBeTruthy()
+    expect(screen.getByText('references')).toBeTruthy()
+  })
+
+  it('the back button returns from the detail view to the catalog list', async () => {
+    const rpc = new FakeRpc()
+    rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({
+      ok: true,
+      value: { skills: [entry({ name: 'alpha', description: 'Alpha thing' })] },
+    }))
+    rpc.setHandler(Endpoints.skillsDetail, () => Promise.resolve({
+      ok: true,
+      value: {
+        found: true,
+        name: 'alpha',
+        description: 'Alpha active',
+        invocation: { modelInvocable: false, userInvocable: true },
+        source: 'bundled',
+        provider: 'runtime',
+        content: 'detail body',
+        references: [{ name: 'guide.md', path: `${ROOT}/.dsh/skills/alpha/guide.md`, kind: 'file' }],
+      },
+    }))
+    renderSkillsTab(rpc)
+
+    await screen.findByText('alpha')
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByText('alpha'))
+    await screen.findByText('detail body')
+
+    await user.click(screen.getByRole('button', { name: 'detailBack' }))
+
+    // The detail is replaced by the catalog list again.
+    await waitFor(() => {
+      expect(screen.queryByText('detail body')).toBeNull()
+    })
+    expect(screen.getByText('alpha')).toBeTruthy()
+    expect(screen.getByText('Alpha thing')).toBeTruthy()
   })
 
   it('skillStatus derives the four statuses from the invocation policy', () => {

@@ -22,6 +22,7 @@ import {
   isGitStageRequest,
   isGitStatusRequest,
   isSkillListRequest,
+  isSkillDetailRequest,
   type SidebarError,
   type SidebarResult,
 } from '../contract/index.ts'
@@ -147,6 +148,15 @@ async function dispatch(
       if (!isSkillListRequest(payload)) return badRequest('invalid payload for ' + endpoint)
       try {
         const value = await services.skills.list(payload)
+        return toRpcResult({ ok: true, value })
+      } catch (e) {
+        return toRpcResult({ ok: false, error: e as SidebarError })
+      }
+    }
+    case Endpoints.skillsDetail: {
+      if (!isSkillDetailRequest(payload)) return badRequest('invalid payload for ' + endpoint)
+      try {
+        const value = await services.skills.detail(payload)
         return toRpcResult({ ok: true, value })
       } catch (e) {
         return toRpcResult({ ok: false, error: e as SidebarError })

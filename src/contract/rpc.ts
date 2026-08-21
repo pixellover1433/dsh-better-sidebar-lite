@@ -5,7 +5,7 @@
  */
 import type { ExplorerListRequest, ExplorerListResult, ExplorerReadRequest, ExplorerReadResult, ExplorerStampRequest, ExplorerStampResult } from './explorer.ts'
 import type { GitCommitDetailRequest, GitCommitDetailResult, GitCommitFileDiffRequest, GitCommitFileDiffResult, GitCommitRequest, GitCommitResult, GitDiffRequest, GitDiffResult, GitDiscardRequest, GitLogRequest, GitLogResult, GitStageRequest, GitStatusRequest, GitStatusResult } from './git.ts'
-import type { SkillListRequest, SkillListResult } from './skills.ts'
+import type { SkillDetailRequest, SkillDetailResult, SkillListRequest, SkillListResult } from './skills.ts'
 
 /** Endpoint names (also the wire method segment after the channel). */
 export const Endpoints = {
@@ -22,6 +22,7 @@ export const Endpoints = {
   gitDiff: 'git/diff',
   gitCommitFileDiff: 'git/commit-file-diff',
   skillsList: 'skills/list',
+  skillsDetail: 'skills/detail',
 } as const
 
 export type BetterSidebarEndpoint = typeof Endpoints[keyof typeof Endpoints]
@@ -41,6 +42,7 @@ export interface BetterSidebarReqMap {
   'git/diff': GitDiffRequest
   'git/commit-file-diff': GitCommitFileDiffRequest
   'skills/list': SkillListRequest
+  'skills/detail': SkillDetailRequest
 }
 
 /** Success value per endpoint. */
@@ -58,6 +60,7 @@ export interface BetterSidebarResMap {
   'git/diff': GitDiffResult
   'git/commit-file-diff': GitCommitFileDiffResult
   'skills/list': SkillListResult
+  'skills/detail': SkillDetailResult
 }
 
 /** Host-side defaults; all are config-overridable (see host config). */
@@ -169,6 +172,12 @@ export function isGitCommitFileDiffRequest(v: unknown): v is GitCommitFileDiffRe
 
 export function isSkillListRequest(v: unknown): v is SkillListRequest {
   if (!isRecord(v) || !isPath(v.cwd)) return false
+  return v.sessionId === undefined || (typeof v.sessionId === 'string' && v.sessionId.length > 0)
+}
+
+export function isSkillDetailRequest(v: unknown): v is SkillDetailRequest {
+  if (!isRecord(v) || !isPath(v.cwd)) return false
+  if (typeof v.name !== 'string' || v.name.length === 0 || v.name.length > 256) return false
   return v.sessionId === undefined || (typeof v.sessionId === 'string' && v.sessionId.length > 0)
 }
 

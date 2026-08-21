@@ -33,3 +33,40 @@ export interface SkillListResult {
   /** Human-readable failure detail when the catalog could not be listed; survives the RPC value slot (strings are JSON-safe). */
   warning?: string
 }
+
+/** One sibling entry inside a skill's resource directory. */
+export interface SkillReference {
+  name: string
+  path: string
+  kind: 'file' | 'directory'
+}
+
+export interface SkillDetailRequest {
+  /** Kebab-case skill name to load. */
+  name: string
+  /** Absolute workspace root; skill lookup is cwd-sensitive. */
+  cwd: string
+  /** Active session id; when present the host merges its per-agent scope chain. */
+  sessionId?: string
+}
+
+export interface SkillDetailResult {
+  /** Whether the skill resolved (a definitive load) vs. a could-not-load outcome. */
+  found: boolean
+  name: string
+  description: string
+  whenToUse?: string
+  invocation: SkillInvocation
+  source: string
+  provider: string
+  /** The skill's SKILL.md markdown body (after frontmatter removal). */
+  content: string
+  /** Absolute SKILL.md file path when known. */
+  path?: string
+  /** Absolute resource directory the skill can reference, when known. */
+  resourceDir?: string
+  /** Sibling files/dirs in the resource directory the skill can reference. */
+  references: SkillReference[]
+  /** Human-readable failure detail; present exactly when found === false. */
+  warning?: string
+}

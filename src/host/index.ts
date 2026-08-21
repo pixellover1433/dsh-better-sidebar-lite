@@ -63,6 +63,7 @@ export function apply(ctx: Context, config?: BetterSidebarConfig): void {
     getAgents: () => ctx.get('agents') as ({ get(id: string): unknown } | undefined),
     getSession: (sessionId: string) => ctx.get('sessions')?.get(sessionId),
     getAgentPresets: () => ctx.get('agentPresets') as ({ serviceFor(agent: unknown, name: string): unknown; standingKeyFor(id?: string): Promise<unknown> | unknown } | undefined),
+    readDir: (dir) => fsNode.readdir(dir, { withFileTypes: true }),
   })
   const handler = createChannelHandler({ explorer, git, skills })
 

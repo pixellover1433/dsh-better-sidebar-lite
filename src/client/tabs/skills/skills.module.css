@@ -63,6 +63,7 @@
   padding: 8px 6px;
   border-bottom: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
   min-width: 0;
+  cursor: pointer;
 }
 .row:last-child { border-bottom: none; }
 .row:hover { background: var(--bsd-bg-hover, rgba(0,0,0,0.04)); }
@@ -197,4 +198,149 @@
   color: #fff;
   cursor: pointer;
   font-size: 13px;
+}
+
+/* Skill detail view (replaces the catalog list while open). */
+.detail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.detailBackButton {
+  flex: none;
+  padding: 4px 8px;
+  border: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  border-radius: 4px;
+  background: none;
+  color: var(--bsd-accent, #0969da);
+  font-size: 12px;
+  cursor: pointer;
+}
+.detailBackButton:hover { background: var(--bsd-bg-hover, rgba(0,0,0,0.04)); }
+
+.detailName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--bsd-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.detailDesc { font-size: 13px; color: var(--bsd-text, #1f2328); }
+
+.detailWhenToUse {
+  font-size: 12px;
+  color: var(--bsd-muted, #656d76);
+}
+
+.detailMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--bsd-text, #1f2328);
+}
+
+.detailLabel {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--bsd-muted, #656d76);
+}
+
+.detailPath {
+  font-family: var(--bsd-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  color: var(--bsd-muted, #656d76);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailSectionTitle {
+  margin-top: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bsd-text, #1f2328);
+}
+
+/* Raw SKILL.md body: no markdown renderer is available — preformatted text is
+   the correct, dependency-free rendering (matches the plugin's raw-content style). */
+.detailContent {
+  margin: 0;
+  max-height: 40%;
+  overflow-y: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--bsd-border, rgba(0,0,0,0.12));
+  border-radius: 6px;
+  background: var(--bsd-bg, rgba(0,0,0,0.03));
+  font-family: var(--bsd-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bsd-text, #1f2328);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.detailReferences {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.referenceItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--bsd-text, #1f2328);
+  min-width: 0;
+}
+.referenceItem:hover { background: var(--bsd-bg-hover, rgba(0,0,0,0.04)); }
+
+.referenceIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--bsd-muted, #656d76);
+}
+
+.referenceName {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--bsd-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detailNoRefs {
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--bsd-muted, #656d76);
 }

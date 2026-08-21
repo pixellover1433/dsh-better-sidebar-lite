@@ -27,6 +27,7 @@ import { resolveRoot } from '../../workspace-root.ts'
 import { RefreshIcon, SkillsIcon } from '../../icons.tsx'
 import type { SkillsKey } from './locales.ts'
 import { useBetterSidebarSettings } from '../shared/settings.ts'
+import { SkillDetailView } from './SkillDetailView.tsx'
 import styles from './skills.module.css'
 
 export interface SkillsTabProps {
@@ -46,7 +47,7 @@ export function skillStatus(entry: SkillEntry): SkillsStatus {
 }
 
 /** Localized key per status, and the CSS class riding alongside. */
-const STATUS_KEY: Record<SkillsStatus, SkillsKey> = {
+export const STATUS_KEY: Record<SkillsStatus, SkillsKey> = {
   enabled: 'statusEnabled',
   disabled: 'statusDisabled',
   modelOnly: 'statusModelOnly',
@@ -70,6 +71,10 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
 
   const [state, setState] = useState<SkillsState>({ kind: 'loading' })
   const controllerRef = useRef<AbortController | null>(null)
+
+  // The skill row currently open in the detail view (replaces the catalog
+  // list); undefined renders the list.
+  const [selected, setSelected] = useState<string | undefined>(undefined)
 
   /** Fetch the catalog, superseding any in-flight request. Non-silent calls
    *  blank the list to a loading state; silent calls (the fallback poll) refresh
@@ -115,17 +120,20 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
    * Fallback poll: catches skills injected into the session after mount by
    * re-fetching silently so the already-loaded list is never blanked. Runs only
    * while this tab is mounted, skips hidden documents, and supersedes any
-   * in-flight request (fetchCatalog aborts it). The cadence comes from the
-   * plugin settings (Skills tab auto-refresh), defaulting to 100ms.
+   * in-flight request (fetchCatalog aborts it). Skipped entirely while a skill
+   * detail is open so the poll cannot churn RPC calls behind the reader.
+   * The cadence comes from the plugin settings (Skills tab auto-refresh),
+   * defaulting to 100ms.
    */
   useEffect(() => {
     if (root === undefined) return
+    if (selected !== undefined) return
     const id = window.setInterval(() => {
       if (document.hidden) return
       void fetchCatalog({ silent: true })
     }, skillsPollMs)
     return () => window.clearInterval(id)
-  }, [root, fetchCatalog, skillsPollMs])
+  }, [root, fetchCatalog, skillsPollMs, selected])
 
   return (
     <div className={styles.panel}>
@@ -139,8 +147,26 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
         </button>
       </div>
       <div className={styles.body}>
-        {state.kind === 'loading' && <div className={styles.loading}>{t('loading')}</div>}
-        {state.kind === 'error' && (
+        {selected !== undefined
+          ? (root === undefined
+            ? (
+              <div className={styles.state}>
+                <div className={styles.stateTitle}>{t('noWorkspace')}</div>
+                <div className={styles.stateHint}>{t('noWorkspaceHint')}</div>
+              </div>
+            )
+            : (
+              <SkillDetailView
+                rpc={rpc}
+                t={t}
+                skillName={selected}
+                root={root}
+                sessionId={sessionId}
+                onBack={() => setSelected(undefined)}
+              />
+            ))
+          : state.kind === 'loading' && <div className={styles.loading}>{t('loading')}</div>}
+        {selected === undefined && state.kind === 'error' && (
           <div className={styles.state}>
             <div className={styles.stateTitle}>{t('errorTitle')}</div>
             <div className={styles.stateHint}>{state.message}</div>
@@ -149,31 +175,36 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
             </button>
           </div>
         )}
-        {state.kind === 'noWorkspace' && (
+        {selected === undefined && state.kind === 'noWorkspace' && (
           <div className={styles.state}>
             <div className={styles.stateTitle}>{t('noWorkspace')}</div>
             <div className={styles.stateHint}>{t('noWorkspaceHint')}</div>
           </div>
         )}
-        {state.kind === 'loaded' && state.warning !== undefined && (
+        {selected === undefined && state.kind === 'loaded' && state.warning !== undefined && (
           <div className={styles.warning}>
             <span className={styles.warningTitle}>{t('warningTitle')}</span>
             <span className={styles.warningText}>{state.warning}</span>
           </div>
         )}
-        {state.kind === 'loaded' && state.skills.length === 0 && (
+        {selected === undefined && state.kind === 'loaded' && state.skills.length === 0 && (
           <div className={styles.empty}>
             <div className={styles.stateTitle}>{t('emptyTitle')}</div>
             <div className={styles.stateHint}>{t('emptyHint')}</div>
           </div>
         )}
-        {state.kind === 'loaded' && state.skills.length > 0 && (
+        {selected === undefined && state.kind === 'loaded' && state.skills.length > 0 && (
           <ul className={styles.list}>
             {state.skills.map(skill => {
               const status = skillStatus(skill)
               const statusLabel = t(STATUS_KEY[status])
               return (
-                <li key={skill.name} className={styles.row}>
+                <li
+                  key={skill.name}
+                  className={styles.row}
+                  onDoubleClick={() => setSelected(skill.name)}
+                  title={skill.name}
+                >
                   <span className={styles.skillName}>{skill.name}</span>
                   <span className={styles.skillDesc}>{skill.description}</span>
                   <span className={`${styles.statusBadge} ${styles[status]}`} aria-label={statusLabel}>

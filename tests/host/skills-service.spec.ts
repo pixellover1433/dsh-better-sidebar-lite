@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SkillRegistry, SkillSummary } from '@deepseek-ai/dsh-skill'
+import { join } from 'node:path'
+import type { Dirent } from 'node:fs'
+import type { SkillDefinition, SkillRegistry, SkillSummary } from '@deepseek-ai/dsh-skill'
 import { SkillService } from '../../src/host/skills.ts'
 
 /** Build a fake summary; required fields are filled from defaults. */
@@ -10,6 +12,31 @@ function summary(overrides: Partial<SkillSummary> & { name: string }): SkillSumm
 /** A registry whose list() yields the given summaries. */
 function registryWith(summaries: SkillSummary[]): SkillRegistry {
   return { list: async () => summaries } as unknown as SkillRegistry
+}
+
+/** A registry whose get() performs no discovery and returns the given definition. */
+function registryThatGets(definition: SkillDefinition | undefined): SkillRegistry {
+  return { list: async () => [], get: async () => definition } as unknown as SkillRegistry
+}
+
+/** One readdir entry from a directory listing (structural Dirent fake). */
+function dirEntry(name: string, isDir: boolean): { name: string; isDirectory(): boolean; isFile(): boolean; isSymbolicLink(): boolean } {
+  return { name, isDirectory: () => isDir, isFile: () => !isDir, isSymbolicLink: () => false }
+}
+
+/** A SkillDefinition with a RESOURCE BASE (a file-backed provider). */
+function definitionWithBase(): SkillDefinition {
+  return {
+    name: 'alpha',
+    description: 'Alpha thing',
+    whenToUse: 'use when X',
+    invocation: { modelInvocable: true, userInvocable: false },
+    source: 'user-dsh',
+    provider: 'runtime',
+    content: '# Alpha\nBody',
+    path: '/repo/.dsh/skills/alpha/SKILL.md',
+    resourceBase: { kind: 'directory', path: '/repo/.dsh/skills/alpha' },
+  }
 }
 
 /** Structural harness agent-registry fake. */
@@ -200,5 +227,141 @@ describe('SkillService', () => {
     } finally {
       consoleError.mockRestore()
     }
+  })
+
+  it('detail() loads a skill body and derives its resource references from readDir', async () => {
+    const definition = definitionWithBase()
+    const dir = '/repo/.dsh/skills/alpha'
+    const readDir = vi.fn(async () => [
+      dirEntry('SKILL.md', false), // the skill's own body — excluded from references
+      dirEntry('references', true),
+      dirEntry('guide.md', false),
+      dirEntry('notes.txt', false),
+    ]) as unknown as (dir: string) => Promise<Dirent[]>
+    const service = new SkillService({
+      getSkills: () => registryThatGets(definition),
+      getAgents: () => undefined,
+      getSession: () => undefined,
+      getAgentPresets: () => undefined,
+      readDir,
+    })
+    const res = await service.detail({ name: 'alpha', cwd: '/repo' })
+    expect(res.found).toBe(true)
+    expect(res.name).toBe('alpha')
+    expect(res.description).toBe('Alpha thing')
+    expect(res.whenToUse).toBe('use when X')
+    expect(res.invocation).toEqual({ modelInvocable: true, userInvocable: false })
+    expect(res.source).toBe('user-dsh')
+    expect(res.provider).toBe('runtime')
+    expect(res.content).toBe('# Alpha\nBody')
+    expect(res.path).toBe('/repo/.dsh/skills/alpha/SKILL.md')
+    expect(res.resourceDir).toBe('/repo/.dsh/skills/alpha')
+    expect(res.warning).toBeUndefined()
+    // readDir was addressed once, at the resource base directory.
+    expect(readDir).toHaveBeenCalledTimes(1)
+    expect(readDir).toHaveBeenCalledWith(dir)
+    // Sibling files sorted dirs-first, then by name; SKILL.md is excluded.
+    expect(res.references).toEqual([
+      { name: 'references', path: join(dir, 'references'), kind: 'directory' },
+      { name: 'guide.md', path: join(dir, 'guide.md'), kind: 'file' },
+      { name: 'notes.txt', path: join(dir, 'notes.txt'), kind: 'file' },
+    ])
+  })
+
+  it('detail() maps whenToUse/path/resourceDir only when present on the definition', async () => {
+    const definition: SkillDefinition = {
+      name: 'alpha',
+      description: 'Alpha thing',
+      invocation: { modelInvocable: true, userInvocable: true },
+      source: 'bundled',
+      provider: 'p',
+      content: 'body',
+    }
+    const service = new SkillService(hostOnly(registryThatGets(definition)))
+    const res = await service.detail({ name: 'alpha', cwd: '/repo' })
+    expect(res.found).toBe(true)
+    expect(res.content).toBe('body')
+    expect(res.references).toEqual([])
+    // exactOptionalPropertyTypes: absent optional fields must not ride undefined.
+    expect(res.whenToUse).toBeUndefined()
+    expect(Object.hasOwn(res, 'whenToUse')).toBe(false)
+    expect(Object.hasOwn(res, 'path')).toBe(false)
+    expect(Object.hasOwn(res, 'resourceDir')).toBe(false)
+  })
+
+  it('detail() returns found:false with a warning when registry.get() returns undefined', async () => {
+    const service = new SkillService(hostOnly(registryThatGets(undefined)))
+    const res = await service.detail({ name: 'ghost', cwd: '/repo' })
+    expect(res.found).toBe(false)
+    expect(res.warning).toBe('skill "ghost" not found')
+    // Stable empty field values keep the wire shape consistent.
+    expect(res.name).toBe('ghost')
+    expect(res.description).toBe('')
+    expect(res.invocation).toEqual({ modelInvocable: false, userInvocable: false })
+    expect(res.source).toBe('')
+    expect(res.provider).toBe('')
+    expect(res.content).toBe('')
+    expect(res.references).toEqual([])
+  })
+
+  it('detail() returns a skills/detail failed warning when the registry seam is absent', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const service = new SkillService(hostOnly(undefined))
+      const res = await service.detail({ name: 'alpha', cwd: '/repo' })
+      expect(res.found).toBe(false)
+      expect(res.references).toEqual([])
+      expect(res.warning).toContain('skills/detail failed:')
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('better-sidebar: skills/detail failed, returning warning'))
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
+  it('detail() resolves references to [] (still found) when readDir throws or no resource dir exists', async () => {
+    // readDir rejects: the reference list degrades to empty, not a failure.
+    const throwing = new SkillService({
+      getSkills: () => registryThatGets(definitionWithBase()),
+      getAgents: () => undefined,
+      getSession: () => undefined,
+      getAgentPresets: () => undefined,
+      readDir: async () => { throw new Error('boom: readdir') },
+    })
+    const thrownRes = await throwing.detail({ name: 'alpha', cwd: '/repo' })
+    expect(thrownRes.found).toBe(true)
+    expect(thrownRes.references).toEqual([])
+
+    // No resourceBase and no path -> no resource dir; readDir is never called.
+    const readDir = vi.fn(async () => []) as unknown as (dir: string) => Promise<Dirent[]>
+    const noDir = new SkillService({
+      getSkills: () => registryThatGets({ name: 'alpha', description: 'd', invocation: { modelInvocable: true, userInvocable: true }, source: 's', provider: 'p', content: 'c' }),
+      getAgents: () => undefined,
+      getSession: () => undefined,
+      getAgentPresets: () => undefined,
+      readDir,
+    })
+    const noDirRes = await noDir.detail({ name: 'alpha', cwd: '/repo' })
+    expect(noDirRes.found).toBe(true)
+    expect(noDirRes.references).toEqual([])
+    expect(readDir).not.toHaveBeenCalled()
+  })
+
+  it('detail() reads through the per-agent scoped registry with the session scope', async () => {
+    const agent = { id: 's1' }
+    const definition = definitionWithBase()
+    const scopedGet = vi.fn(async () => definition)
+    const scopedRegistry = { list: async () => [], get: scopedGet } as unknown as SkillRegistry
+    const service = new SkillService({
+      getSkills: () => registryThatGets(undefined),
+      getAgents: () => agentsWith(agent),
+      getSession: () => undefined,
+      getAgentPresets: () => presetsWith(scopedRegistry),
+    })
+    const res = await service.detail({ name: 'alpha', cwd: '/repo', sessionId: 's1' })
+    // The scoped registry (not the host one) is addressed, with the live agent
+    // as the view scope and the cwd required for cwd-sensitive lookup.
+    expect(scopedGet).toHaveBeenCalledWith('alpha', { cwd: '/repo', scope: agent })
+    expect(res.found).toBe(true)
+    expect(res.name).toBe('alpha')
   })
 })

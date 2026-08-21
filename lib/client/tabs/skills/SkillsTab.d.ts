@@ -9,5 +9,7 @@ export interface SkillsTabProps {
 /** Derived model/user invocation status of one skill. */
 export type SkillsStatus = 'enabled' | 'disabled' | 'modelOnly' | 'userOnly';
 export declare function skillStatus(entry: SkillEntry): SkillsStatus;
+/** Localized key per status, and the CSS class riding alongside. */
+export declare const STATUS_KEY: Record<SkillsStatus, SkillsKey>;
 export declare function SkillsTab({ rpc, t }: SkillsTabProps): import("react").JSX.Element;
 //# sourceMappingURL=SkillsTab.d.ts.map

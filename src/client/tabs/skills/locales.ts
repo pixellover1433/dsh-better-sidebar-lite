@@ -27,6 +27,12 @@ export const zh = {
   statusDisabled: '已禁用',
   statusModelOnly: '仅模型',
   statusUserOnly: '仅用户',
+  detailBack: '返回',
+  detailContentTitle: '内容',
+  detailReferencesTitle: '引用文件',
+  detailNoReferences: '无引用文件',
+  detailNotFound: '未找到该技能',
+  detailProvider: '提供方',
 } as const
 
 /** English dictionary, key-identical to the zh source of truth. */
@@ -45,6 +51,12 @@ export const en: Record<SkillsKey, string> = {
   statusDisabled: 'Disabled',
   statusModelOnly: 'Model only',
   statusUserOnly: 'User only',
+  detailBack: 'Back',
+  detailContentTitle: 'Content',
+  detailReferencesTitle: 'Referenced files',
+  detailNoReferences: 'No referenced files',
+  detailNotFound: 'Skill not found',
+  detailProvider: 'Provider',
 }
 
 /** Key domain of the skills namespace. */

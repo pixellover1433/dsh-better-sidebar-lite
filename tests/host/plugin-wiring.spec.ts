@@ -281,4 +281,43 @@ describe('host plugin wiring', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('bad-request');
   });
+
+  it('serves skills/detail as not-found when the skills seam is absent', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    // The bare test Context has no skills/agents/presets seams, so the scoped
+    // resolution falls through to the host registry, which is also absent. As
+    // with list, the host never throws: it returns a SUCCESS value whose
+    // `found` is false and whose `warning` carries the diagnostic detail.
+    const result = await handler(Endpoints.skillsDetail, { name: 'alpha', cwd: dir }, new AbortController().signal);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const envelope = result.value as { ok: boolean; value?: { found: boolean; references: unknown[]; warning?: string } };
+      expect(envelope.ok).toBe(true);
+      expect(envelope.value?.found).toBe(false);
+      expect(envelope.value?.references).toEqual([]);
+      expect(typeof envelope.value?.warning).toBe('string');
+      expect(envelope.value?.warning).toContain('skills/detail failed:');
+    }
+  });
+
+  it('rejects a malformed skills/detail payload as bad-request', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    // A missing name is invalid: the guard requires a non-empty string name.
+    const result = await handler(Endpoints.skillsDetail, { cwd: dir }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
+
+  it('rejects a skills/detail payload with a non-string name as bad-request', async () => {
+    apply(ctx, {});
+    await vi.waitFor(() => expect(connection.captured.handler).toBeTruthy());
+    const handler = connection.captured.handler!;
+    const result = await handler(Endpoints.skillsDetail, { name: 5, cwd: dir }, new AbortController().signal);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('bad-request');
+  });
 })
