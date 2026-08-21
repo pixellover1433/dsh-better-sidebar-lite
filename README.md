@@ -17,12 +17,12 @@ Add a sidebar to the right side of the workspace screen with usefull tabs:
 # How to install 
 
 ```
-dsh plugin add dsh-better-sidebar-lite@0.0.3-beta.3 --profile web
+dsh plugin add dsh-better-sidebar-lite@0.0.4-beta.1 --profile web
 ```
 
 ⚠️ **WARNING:** Make sure to install Deepseek Harness version 0.1.0-rc.7 or higher...
 
-# What is does ? (0.0.3-beta.3)
+# What is does ? (0.0.4-beta.1)
 Add a sidebar to the right side of the workspace screen. This area will contain tabs displaying various pieces of information, including:
 - **Editor**: Modal editors support viewing the content of objects.
 - **Explorer**: 
@@ -36,6 +36,9 @@ Add a sidebar to the right side of the workspace screen. This area will contain 
   - Commit history
 - **Skills**:
   - Will display a list of skills that the current agent (preset) has loaded/will load into.
+  - View the list of skills of the current session along with their status (enable / disable)
+  - View the content of skills
+  - View the reference files that skills use
 - Synchronize the light/dark mode of your Deepseek Harnes profile.
 - Allows for custom configurations through the settings from the Deepseek Harness configuration interface.
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-better-sidebar-lite",
-  "version": "0.0.3-beta.2",
+  "version": "0.0.4-beta.1",
   "description": "Right-side tabbed sidebar for DeepSeek Harness web: explorer (workspace file tree) and git (changes, commits) tabs on an extensible tab registry",
   "license": "MIT",
   "repository": {
