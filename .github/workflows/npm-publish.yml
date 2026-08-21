@@ -60,7 +60,7 @@ jobs:
       - name: Sync package.json version to tag
         # Make the distributed package.json carry the tagged version so the
         # published artifact matches the GitHub Release.
-        run: pnpm version --no-git-tag-version "${{ steps.version.outputs.version }}"
+        run: npm pkg set version="${{ steps.version.outputs.version }}"
 
       - name: Publish to npm
         run: npm publish --access public
