@@ -232,12 +232,24 @@ describe('SkillService', () => {
   it('detail() loads a skill body and derives its resource references from readDir', async () => {
     const definition = definitionWithBase()
     const dir = '/repo/.dsh/skills/alpha'
-    const readDir = vi.fn(async () => [
-      dirEntry('SKILL.md', false), // the skill's own body — excluded from references
-      dirEntry('references', true),
-      dirEntry('guide.md', false),
-      dirEntry('notes.txt', false),
-    ]) as unknown as (dir: string) => Promise<Dirent[]>
+    const refsDir = join(dir, 'references')
+    const subDir = join(refsDir, 'sub')
+    const emptyDir = join(dir, 'empty')
+    const readDir = vi.fn(async (p: string) =>
+      p === dir
+        ? [
+            dirEntry('SKILL.md', false), // the skill's own body — excluded from references
+            dirEntry('references', true),
+            dirEntry('guide.md', false),
+            dirEntry('notes.txt', false),
+            dirEntry('empty', true), // must contribute nothing — directories are not references
+          ]
+        : p === refsDir
+          ? [dirEntry('notes.md', false), dirEntry('sub', true)]
+          : p === subDir
+            ? [dirEntry('deep.txt', false)]
+            : [],
+    ) as unknown as (dir: string) => Promise<Dirent[]>
     const service = new SkillService({
       getSkills: () => registryThatGets(definition),
       getAgents: () => undefined,
@@ -257,15 +269,21 @@ describe('SkillService', () => {
     expect(res.path).toBe('/repo/.dsh/skills/alpha/SKILL.md')
     expect(res.resourceDir).toBe('/repo/.dsh/skills/alpha')
     expect(res.warning).toBeUndefined()
-    // readDir was addressed once, at the resource base directory.
-    expect(readDir).toHaveBeenCalledTimes(1)
+    // The recursion descends into every subdirectory (root + each subdir).
+    expect(readDir).toHaveBeenCalledTimes(4)
     expect(readDir).toHaveBeenCalledWith(dir)
-    // Sibling files sorted dirs-first, then by name; SKILL.md is excluded.
+    expect(readDir).toHaveBeenCalledWith(refsDir)
+    expect(readDir).toHaveBeenCalledWith(subDir)
+    expect(readDir).toHaveBeenCalledWith(emptyDir)
+    // Files only, named relative to the resource dir with `/` separators,
+    // sorted by name; SKILL.md (root) excluded; no directory references.
     expect(res.references).toEqual([
-      { name: 'references', path: join(dir, 'references'), kind: 'directory' },
       { name: 'guide.md', path: join(dir, 'guide.md'), kind: 'file' },
       { name: 'notes.txt', path: join(dir, 'notes.txt'), kind: 'file' },
+      { name: 'references/notes.md', path: join(refsDir, 'notes.md'), kind: 'file' },
+      { name: 'references/sub/deep.txt', path: join(subDir, 'deep.txt'), kind: 'file' },
     ])
+    expect(res.references.every(r => r.kind === 'file')).toBe(true)
   })
 
   it('detail() maps whenToUse/path/resourceDir only when present on the definition', async () => {

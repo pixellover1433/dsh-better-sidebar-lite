@@ -11,6 +11,11 @@ import type {
   SkillReference,
 } from '../contract/index.ts'
 
+/** Cap on the total referenced files surfaced for a skill (bounds recursion). */
+const MAX_REFERENCE_FILES = 500
+/** Max sub-directory depth the reference traversal descends into (bounds recursion). */
+const MAX_REFERENCE_DEPTH = 16
+
 /** Lazy harness agent-presets seam; structurally typed to avoid extra runtime deps. */
 interface AgentPresetsSeam {
   serviceFor(agent: unknown, name: string): unknown
@@ -137,30 +142,58 @@ export class SkillService {
   }
 
   /**
-   * List the sibling files/dirs a skill's resource directory exposes. The
+   * List the files a skill's resource directory recursively exposes. The
    * resource directory is the skill's own directory: the provider-declared
-   * directory base when present, else the directory of the SKILL.md file. A
-   * missing seam, an unreadable directory, or an unknown directory all resolve
-   * to an empty reference list — never a failure.
+   * directory base when present, else the directory of the SKILL.md file.
+   * Directories are descended into (never emitted); only files are surfaced as
+   * references, named by their path relative to the resource directory with
+   * `/` separators. A missing seam, an unreadable/unknown root, or an
+   * unreadable subdirectory all degrade to (part of) an empty reference list —
+   * never a failure.
    */
   private async resolveReferences(definition: SkillDefinition): Promise<SkillReference[]> {
-    if (this.deps.readDir === undefined) return []
+    const readDir = this.deps.readDir
+    if (readDir === undefined) return []
     const resourceDir = skillResourceDir(definition)
     if (resourceDir === undefined) return []
+    const refs: SkillReference[] = []
+    await this.collectReferences(resourceDir, [], refs, 0, readDir)
+    refs.sort((a, b) => a.name.localeCompare(b.name))
+    return refs.slice(0, MAX_REFERENCE_FILES)
+  }
+
+  /**
+   * Depth-first, files-only walk of the resource directory. Descends into
+   * subdirectories (symlinks never qualify as `isDirectory()`, so no cycle
+   * risk), surfaces only files, and stops once the reference cap or depth bound
+   * is hit. An unreadable subdirectory contributes nothing and is skipped.
+   */
+  private async collectReferences(
+    dir: string,
+    segments: string[],
+    out: SkillReference[],
+    depth: number,
+    readDir: (dir: string) => Promise<Dirent[]>,
+  ): Promise<void> {
+    if (depth > MAX_REFERENCE_DEPTH || out.length >= MAX_REFERENCE_FILES) return
     let entries: Dirent[]
     try {
-      entries = await this.deps.readDir(resourceDir)
+      entries = await readDir(dir)
     } catch {
-      return []
+      return
     }
-    const refs: SkillReference[] = []
     for (const entry of entries) {
-      // Exclude the skill's own SKILL.md from references.
-      if (entry.isFile() && entry.name.toLowerCase() === 'skill.md') continue
-      refs.push({ name: entry.name, path: join(resourceDir, entry.name), kind: entry.isDirectory() ? 'directory' : 'file' })
+      if (out.length >= MAX_REFERENCE_FILES) return
+      // Only the skill's own root SKILL.md is excluded; a SKILL.md in a
+      // subdirectory is a legitimate referenced file.
+      if (depth === 0 && entry.isFile() && entry.name.toLowerCase() === 'skill.md') continue
+      const next = [...segments, entry.name]
+      if (entry.isDirectory()) {
+        await this.collectReferences(join(dir, entry.name), next, out, depth + 1, readDir)
+      } else {
+        out.push({ name: next.join('/'), path: join(dir, entry.name), kind: 'file' })
+      }
     }
-    refs.sort((a, b) => (a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'directory' ? -1 : 1))
-    return refs.slice(0, 500)
   }
 
   /**

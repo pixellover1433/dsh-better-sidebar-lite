@@ -279,7 +279,7 @@ describe('SkillsTab', () => {
       resourceDir: `${ROOT}/.dsh/skills/alpha`,
       references: [
         { name: 'guide.md', path: `${ROOT}/.dsh/skills/alpha/guide.md`, kind: 'file' },
-        { name: 'references', path: `${ROOT}/.dsh/skills/alpha/references`, kind: 'directory' },
+        { name: 'references/notes.md', path: `${ROOT}/.dsh/skills/alpha/references/notes.md`, kind: 'file' },
       ],
     }
     rpc.setHandler(Endpoints.skillsDetail, () => Promise.resolve({ ok: true, value: detail }))
@@ -302,7 +302,8 @@ describe('SkillsTab', () => {
     await screen.findByText('# Alpha Body content')
     expect(screen.getByText('Alpha detail desc')).toBeTruthy()
     expect(screen.getByText('guide.md')).toBeTruthy()
-    expect(screen.getByText('references')).toBeTruthy()
+    // Nested-file references render their resource-relative name.
+    expect(screen.getByText('references/notes.md')).toBeTruthy()
   })
 
   it('the back button returns from the detail view to the catalog list', async () => {

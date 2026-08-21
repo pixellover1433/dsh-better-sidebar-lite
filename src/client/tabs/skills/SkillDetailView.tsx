@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { SkillDetailResult, SkillDetailRequest } from '../../../contract/skills.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
-import { FileIcon, FolderIcon } from '../../icons.tsx'
+import { FileIcon } from '../../icons.tsx'
 import { skillStatus, STATUS_KEY } from './SkillsTab.tsx'
 import type { SkillsKey } from './locales.ts'
 import styles from './skills.module.css'
@@ -139,7 +139,7 @@ export function SkillDetailView({ rpc, t, skillName, root, sessionId, onBack }: 
                 {loaded.references.map(ref => (
                   <li key={ref.path} className={styles.referenceItem} title={ref.path}>
                     <span className={styles.referenceIcon}>
-                      {ref.kind === 'directory' ? <FolderIcon size={13} /> : <FileIcon size={13} />}
+                      <FileIcon size={13} />
                     </span>
                     <span className={styles.referenceName}>{ref.name}</span>
                   </li>
