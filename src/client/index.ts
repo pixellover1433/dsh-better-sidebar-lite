@@ -107,7 +107,7 @@ export function apply(ctx: ClientContext): void {
 
     const disposeGitTab = tabs.register(createGitTabDef(ctx, { rpc, emitter: explorer }))
     const disposeExplorerTab = tabs.register(createExplorerTabDef(ctx, { rpc, emitter: explorer }))
-    const disposeSkillsTab = tabs.register(createSkillsTabDef(ctx, { rpc }))
+    const disposeSkillsTab = tabs.register(createSkillsTabDef(ctx, { rpc, emitter: explorer }))
 
     const DockEntry = createDockEntry({ rpc, tabs, events: explorer, settings: scope, t: ctx.locale.bind(DOCK_NS), layout: ctx.layout })
     // The dock owns the frame's right 'details' column (declared by ui-layout

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { SkillDetailResult, SkillDetailRequest } from '../../../contract/skills.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
+import type { ExplorerOpenFileEmitter } from '../explorer/events.ts'
 import { FileIcon } from '../../icons.tsx'
 import { skillStatus, STATUS_KEY } from './SkillsTab.tsx'
 import type { SkillsKey } from './locales.ts'
@@ -17,6 +18,8 @@ import styles from './skills.module.css'
 
 export interface SkillDetailViewProps {
   rpc: BetterSidebarRpc
+  /** Open-file emitter; reference rows emit into it so the shared modal opens files. */
+  emitter: ExplorerOpenFileEmitter
   /** Bound skills-namespace translate. */
   t: (key: SkillsKey, params?: Record<string, unknown>) => string
   /** Kebab-case skill name whose detail to load. */
@@ -35,7 +38,7 @@ type DetailState =
   | { kind: 'error'; message: string }
   | { kind: 'loaded'; value: SkillDetailResult }
 
-export function SkillDetailView({ rpc, t, skillName, root, sessionId, onBack }: SkillDetailViewProps) {
+export function SkillDetailView({ rpc, emitter, t, skillName, root, sessionId, onBack }: SkillDetailViewProps) {
   const [state, setState] = useState<DetailState>({ kind: 'loading' })
   const controllerRef = useRef<AbortController | null>(null)
 
@@ -137,7 +140,18 @@ export function SkillDetailView({ rpc, t, skillName, root, sessionId, onBack }: 
             : (
               <ul className={styles.detailReferences}>
                 {loaded.references.map(ref => (
-                  <li key={ref.path} className={styles.referenceItem} title={ref.path}>
+                  <li
+                    key={ref.path}
+                    className={styles.referenceItem}
+                    title={ref.path}
+                    onDoubleClick={() => emitter.emit({
+                      path: ref.path,
+                      name: ref.name,
+                      kind: 'file',
+                      source: 'double-click',
+                      rootPath: loaded.resourceDir ?? root,
+                    })}
+                  >
                     <span className={styles.referenceIcon}>
                       <FileIcon size={13} />
                     </span>

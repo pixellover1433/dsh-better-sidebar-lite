@@ -52,13 +52,23 @@ export declare class SkillService {
     /** Stable empty field defaults shared by every could-not-load detail outcome. */
     private emptyDetail;
     /**
-     * List the sibling files/dirs a skill's resource directory exposes. The
+     * List the files a skill's resource directory recursively exposes. The
      * resource directory is the skill's own directory: the provider-declared
-     * directory base when present, else the directory of the SKILL.md file. A
-     * missing seam, an unreadable directory, or an unknown directory all resolve
-     * to an empty reference list — never a failure.
+     * directory base when present, else the directory of the SKILL.md file.
+     * Directories are descended into (never emitted); only files are surfaced as
+     * references, named by their path relative to the resource directory with
+     * `/` separators. A missing seam, an unreadable/unknown root, or an
+     * unreadable subdirectory all degrade to (part of) an empty reference list —
+     * never a failure.
      */
     private resolveReferences;
+    /**
+     * Depth-first, files-only walk of the resource directory. Descends into
+     * subdirectories (symlinks never qualify as `isDirectory()`, so no cycle
+     * risk), surfaces only files, and stops once the reference cap or depth bound
+     * is hit. An unreadable subdirectory contributes nothing and is skipped.
+     */
+    private collectReferences;
     /**
      * The preset a session actually runs, newest selection winning (mirrors the
      * harness's resolveSessionPreset, implemented structurally with no runtime

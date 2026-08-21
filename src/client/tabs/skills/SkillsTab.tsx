@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Endpoints } from '../../../contract/rpc.ts'
 import type { SkillEntry, SkillListRequest } from '../../../contract/skills.ts'
 import type { BetterSidebarRpc } from '../../rpc-client.ts'
+import type { ExplorerOpenFileEmitter } from '../explorer/events.ts'
 import { useDock } from '../../dock/context.ts'
 import { resolveRoot } from '../../workspace-root.ts'
 import { RefreshIcon, SkillsIcon } from '../../icons.tsx'
@@ -32,6 +33,8 @@ import styles from './skills.module.css'
 
 export interface SkillsTabProps {
   rpc: BetterSidebarRpc
+  /** Open-file emitter; detail reference rows emit into it so the shared modal opens files. */
+  emitter: ExplorerOpenFileEmitter
   /** Bound skills-namespace translate. */
   t: (key: SkillsKey, params?: Record<string, unknown>) => string
 }
@@ -61,7 +64,7 @@ type SkillsState =
   | { kind: 'loaded'; skills: SkillEntry[]; warning?: string }
   | { kind: 'noWorkspace' }
 
-export function SkillsTab({ rpc, t }: SkillsTabProps) {
+export function SkillsTab({ rpc, emitter, t }: SkillsTabProps) {
   const { useSessions, useWorkspaces, settings } = useDock()
   const sessions = useSessions(s => s)
   const workspaces = useWorkspaces(w => w)
@@ -158,6 +161,7 @@ export function SkillsTab({ rpc, t }: SkillsTabProps) {
             : (
               <SkillDetailView
                 rpc={rpc}
+                emitter={emitter}
                 t={t}
                 skillName={selected}
                 root={root}

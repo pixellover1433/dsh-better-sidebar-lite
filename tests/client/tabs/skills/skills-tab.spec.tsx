@@ -18,6 +18,7 @@ import { Endpoints, type BetterSidebarEndpoint, type BetterSidebarReqMap, type B
 import type { BetterSidebarRpc } from '../../../../src/client/rpc-client.ts'
 import { DockContext, type DockContextValue } from '../../../../src/client/dock/context.ts'
 import { skillStatus, SkillsTab, type SkillsTabProps } from '../../../../src/client/tabs/skills/SkillsTab.tsx'
+import { ExplorerOpenFileEmitter, type ExplorerOpenFileEvent } from '../../../../src/client/tabs/explorer/events.ts'
 import { SETTINGS_DEFAULTS } from '../../../../src/contract/settings.ts'
 
 /** Locale stub: render keys verbatim so assertions read the raw key. */
@@ -106,6 +107,7 @@ afterEach(() => cleanup())
 function renderSkillsTab(
   rpc: BetterSidebarRpc,
   options?: { sessions?: SessionListState; workspaces?: WorkspaceListState },
+  emitter: ExplorerOpenFileEmitter = new ExplorerOpenFileEmitter(),
 ): void {
   const value: DockContextValue = {
     rpc,
@@ -115,7 +117,7 @@ function renderSkillsTab(
   }
   render(
     <DockContext.Provider value={value}>
-      <SkillsTab rpc={rpc} t={t} />
+      <SkillsTab rpc={rpc} emitter={emitter} t={t} />
     </DockContext.Provider>,
   )
 }
@@ -304,6 +306,50 @@ describe('SkillsTab', () => {
     expect(screen.getByText('guide.md')).toBeTruthy()
     // Nested-file references render their resource-relative name.
     expect(screen.getByText('references/notes.md')).toBeTruthy()
+  })
+
+  it('double-clicking a reference file emits an open-file event on the shared emitter', async () => {
+    const rpc = new FakeRpc()
+    rpc.setHandler(Endpoints.skillsList, () => Promise.resolve({
+      ok: true,
+      value: { skills: [entry({ name: 'alpha', description: 'Alpha thing' })] },
+    }))
+    const resourceDir = `${ROOT}/.dsh/skills/alpha`
+    const detail: SkillDetailResult = {
+      found: true,
+      name: 'alpha',
+      description: 'Alpha detail desc',
+      invocation: { modelInvocable: true, userInvocable: true },
+      source: 'bundled',
+      provider: 'runtime',
+      content: '# Alpha\nBody content',
+      path: `${ROOT}/.dsh/skills/alpha/SKILL.md`,
+      resourceDir,
+      references: [
+        { name: 'references/notes.md', path: `${resourceDir}/references/notes.md`, kind: 'file' },
+      ],
+    }
+    rpc.setHandler(Endpoints.skillsDetail, () => Promise.resolve({ ok: true, value: detail }))
+    const emitter = new ExplorerOpenFileEmitter()
+    const opened: ExplorerOpenFileEvent[] = []
+    emitter.onOpenFile(e => opened.push(e))
+    renderSkillsTab(rpc, undefined, emitter)
+
+    await screen.findByText('alpha')
+    const user = userEvent.setup()
+    await user.dblClick(screen.getByText('alpha'))
+    await screen.findByText('references/notes.md')
+
+    await user.dblClick(screen.getByText('references/notes.md'))
+
+    expect(opened).toHaveLength(1)
+    expect(opened[0]).toEqual({
+      path: `${resourceDir}/references/notes.md`,
+      name: 'references/notes.md',
+      kind: 'file',
+      source: 'double-click',
+      rootPath: resourceDir,
+    })
   })
 
   it('the back button returns from the detail view to the catalog list', async () => {
