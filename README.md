@@ -1,6 +1,7 @@
 [![npm version](https://img.shields.io/npm/v/dsh-better-sidebar-lite?style=flat-square&logo=npm&color=cb3837)](https://www.npmjs.com/package/dsh-better-sidebar-lite)
 [![npm downloads](https://img.shields.io/npm/dt/dsh-better-sidebar-lite.svg)](https://www.npmjs.com/package/dsh-better-sidebar-lite)
 [![npm license](https://img.shields.io/npm/l/dsh-better-sidebar-lite.svg)](https://www.npmjs.com/package/dsh-better-sidebar-lite.svg)
+**🌐 語言 / Language:** [English](./README.md) · [繁體中文](./README.zh-TW.md)
 
 
 <div align="center">
